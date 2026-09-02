@@ -1,13 +1,41 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Pokedex</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="assets/favicon/pokebola.png">
-</head>
-<body>
-  <app-root></app-root>
-</body>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pokédex</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Pokédex feita com Angular e a PokéAPI: pesquise e explore informações detalhadas dos Pokémon."
+    />
+    <meta name="theme-color" content="#e3350d" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Pokédex" />
+    <meta
+      property="og:description"
+      content="Pokédex feita com Angular e a PokéAPI: pesquise e explore informações detalhadas dos Pokémon."
+    />
+    <meta property="og:image" content="assets/image/pokedex.png" />
+    <link rel="icon" type="image/png" href="assets/favicon/pokebola.png" />
+    <script>
+      // Contraparte do public/404.html: reconstrói a rota após o redirect do GitHub Pages.
+      (function () {
+        var l = window.location;
+        if (l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) {
+              return s.replace(/~and~/g, '&');
+            })
+            .join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
 </html>

@@ -1,198 +1,155 @@
-/* You can add global styles to this file, and also import other style files */
-*{
-  font-family: 'Poppins', sans-serif;
+/* Estilos globais. */
+@use 'sass:list';
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* -------------------------------------------------------------------------- */
+/*  Tokens de tema — claro por padrão, sobrescritos em `html.app-dark`.        */
+/*  Os componentes PrimeNG são temados pelo preset Aura (darkModeSelector);    */
+/*  estes tokens cobrem as superfícies próprias do app (cards, dialog, etc.).  */
+/* -------------------------------------------------------------------------- */
+:root {
+  font-size: 16px;
+
+  --app-bg: #f3f4f6;
+  --app-text: #1f2937;
+  --app-text-muted: #6b7280;
+  --app-surface: #ffffff;
+  --app-surface-2: #eef0f3;
+  --app-border: #e2e5e9;
+
+  --card-tint-strength: 34%;
+  --card-tint-base: #ffffff;
+}
+
+html.app-dark {
+  --app-bg: #0e0e11;
+  --app-text: #e6e7ea;
+  --app-text-muted: #9aa1ab;
+  --app-surface: #1b1b21;
+  --app-surface-2: #24242b;
+  --app-border: #34343c;
+
+  --card-tint-strength: 40%;
+  --card-tint-base: #1e1e24;
+}
+
+body {
+  margin: 0;
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   font-optical-sizing: auto;
   font-weight: 400;
-  font-style: normal;
-  font-size: 14px;
+  line-height: 1.5;
+  color: var(--app-text);
+  background: var(--app-bg);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
-.bug {
-  background: -webkit-linear-gradient(180deg, #729f3f 50%, #729f3f 50%);
-  background: -ms-linear-gradient(180deg, #729f3f 50%, #729f3f 50%);
-  background: -moz-linear-gradient(180deg, #729f3f 50%, #729f3f 50%);
-  background: -o-linear-gradient(180deg, #729f3f 50%, #729f3f 50%);
-  background: linear-gradient(180deg, #729f3f 50%, #729f3f 50%);
-  background-color: #729f3f;
-  color: #fff
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+small {
+  font-size: 0.8125rem;
 }
 
-.dark {
-  background: -webkit-linear-gradient(180deg, #707070 50%, #707070 50%);
-  background: -ms-linear-gradient(180deg, #707070 50%, #707070 50%);
-  background: -moz-linear-gradient(180deg, #707070 50%, #707070 50%);
-  background: -o-linear-gradient(180deg, #707070 50%, #707070 50%);
-  background: linear-gradient(180deg, #707070 50%, #707070 50%);
-  background-color: #707070;
-  color: #fff
-}
+/* -------------------------------------------------------------------------- */
+/*  Cores por tipo de Pokémon — expõem apenas custom properties:               */
+/*  `--type-color` (fundo) e `--type-on-color` (texto com contraste AA).       */
+/* -------------------------------------------------------------------------- */
+$pokemon-types: (
+  bug: (
+    #729f3f,
+    #fff,
+  ),
+  dark: (
+    #5a5366,
+    #fff,
+  ),
+  dragon: (
+    #4b8fbf,
+    #fff,
+  ),
+  electric: (
+    #c9a900,
+    #1b1b1b,
+  ),
+  fairy: (
+    #d968b6,
+    #fff,
+  ),
+  fighting: (
+    #d56723,
+    #fff,
+  ),
+  fire: (
+    #e56a12,
+    #fff,
+  ),
+  flying: (
+    #6d9bd8,
+    #1b1b1b,
+  ),
+  ghost: (
+    #7b62a3,
+    #fff,
+  ),
+  grass: (
+    #5a9b34,
+    #fff,
+  ),
+  ground: (
+    #b89327,
+    #1b1b1b,
+  ),
+  ice: (
+    #3fb2cd,
+    #1b1b1b,
+  ),
+  normal: (
+    #7c8288,
+    #fff,
+  ),
+  poison: (
+    #a852bd,
+    #fff,
+  ),
+  psychic: (
+    #e64c86,
+    #fff,
+  ),
+  rock: (
+    #a38c21,
+    #fff,
+  ),
+  steel: (
+    #6f8486,
+    #fff,
+  ),
+  water: (
+    #4592c4,
+    #fff,
+  ),
+);
 
-.dragon {
-  background: -webkit-linear-gradient(180deg, #53a4cf 50%, #f16e57 50%);
-  background: -ms-linear-gradient(180deg, #53a4cf 50%, #f16e57 50%);
-  background: -moz-linear-gradient(180deg, #53a4cf 50%, #f16e57 50%);
-  background: -o-linear-gradient(180deg, #53a4cf 50%, #f16e57 50%);
-  background: linear-gradient(180deg, #53a4cf 50%, #f16e57 50%);
-  background-color: #53a4cf;
-  color: #fff
+@each $name, $pair in $pokemon-types {
+  .type-#{$name} {
+    --type-color: #{list.nth($pair, 1)};
+    --type-on-color: #{list.nth($pair, 2)};
+  }
 }
-
-.electric {
-  background: -webkit-linear-gradient(180deg, #eed535 50%, #eed535 50%);
-  background: -ms-linear-gradient(180deg, #eed535 50%, #eed535 50%);
-  background: -moz-linear-gradient(180deg, #eed535 50%, #eed535 50%);
-  background: -o-linear-gradient(180deg, #eed535 50%, #eed535 50%);
-  background: linear-gradient(180deg, #eed535 50%, #eed535 50%);
-  background-color: #eed535;
-  color: #212121
-}
-
-.fairy {
-  background: -webkit-linear-gradient(180deg, #fdb9e9 50%, #fdb9e9 50%);
-  background: -ms-linear-gradient(180deg, #fdb9e9 50%, #fdb9e9 50%);
-  background: -moz-linear-gradient(180deg, #fdb9e9 50%, #fdb9e9 50%);
-  background: -o-linear-gradient(180deg, #fdb9e9 50%, #fdb9e9 50%);
-  background: linear-gradient(180deg, #fdb9e9 50%, #fdb9e9 50%);
-  background-color: #fdb9e9;
-  color: #212121
-}
-
-.fighting {
-  background: -webkit-linear-gradient(180deg, #d56723 50%, #d56723 50%);
-  background: -ms-linear-gradient(180deg, #d56723 50%, #d56723 50%);
-  background: -moz-linear-gradient(180deg, #d56723 50%, #d56723 50%);
-  background: -o-linear-gradient(180deg, #d56723 50%, #d56723 50%);
-  background: linear-gradient(180deg, #d56723 50%, #d56723 50%);
-  background-color: #d56723;
-  color: #fff
-}
-
-.fire {
-  background: -webkit-linear-gradient(180deg, #fd7d24 50%, #fd7d24 50%);
-  background: -ms-linear-gradient(180deg, #fd7d24 50%, #fd7d24 50%);
-  background: -moz-linear-gradient(180deg, #fd7d24 50%, #fd7d24 50%);
-  background: -o-linear-gradient(180deg, #fd7d24 50%, #fd7d24 50%);
-  background: linear-gradient(180deg, #fd7d24 50%, #fd7d24 50%);
-  background-color: #fd7d24;
-  color: #fff
-}
-
-.flying {
-  background: -webkit-linear-gradient(180deg, #3dc7ef 50%, #bdb9b8 50%);
-  background: -ms-linear-gradient(180deg, #3dc7ef 50%, #bdb9b8 50%);
-  background: -moz-linear-gradient(180deg, #3dc7ef 50%, #bdb9b8 50%);
-  background: -o-linear-gradient(180deg, #3dc7ef 50%, #bdb9b8 50%);
-  background: linear-gradient(180deg, #3dc7ef 50%, #bdb9b8 50%);
-  background-color: #3dc7ef;
-  color: #212121
-}
-
-.ghost {
-  background: -webkit-linear-gradient(180deg, #7b62a3 50%, #7b62a3 50%);
-  background: -ms-linear-gradient(180deg, #7b62a3 50%, #7b62a3 50%);
-  background: -moz-linear-gradient(180deg, #7b62a3 50%, #7b62a3 50%);
-  background: -o-linear-gradient(180deg, #7b62a3 50%, #7b62a3 50%);
-  background: linear-gradient(180deg, #7b62a3 50%, #7b62a3 50%);
-  background-color: #7b62a3;
-  color: #fff
-}
-
-.grass {
-  background: -webkit-linear-gradient(180deg, #9bcc50 50%, #9bcc50 50%);
-  background: -ms-linear-gradient(180deg, #9bcc50 50%, #9bcc50 50%);
-  background: -moz-linear-gradient(180deg, #9bcc50 50%, #9bcc50 50%);
-  background: -o-linear-gradient(180deg, #9bcc50 50%, #9bcc50 50%);
-  background: linear-gradient(180deg, #9bcc50 50%, #9bcc50 50%);
-  background-color: #9bcc50;
-  color: #212121
-}
-
-.ground {
-  background: -webkit-linear-gradient(180deg, #f7de3f 50%, #ab9842 50%);
-  background: -ms-linear-gradient(180deg, #f7de3f 50%, #ab9842 50%);
-  background: -moz-linear-gradient(180deg, #f7de3f 50%, #ab9842 50%);
-  background: -o-linear-gradient(180deg, #f7de3f 50%, #ab9842 50%);
-  background: linear-gradient(180deg, #f7de3f 50%, #ab9842 50%);
-  background-color: #f7de3f;
-  color: #212121
-}
-
-.ice {
-  background: -webkit-linear-gradient(180deg, #51c4e7 50%, #51c4e7 50%);
-  background: -ms-linear-gradient(180deg, #51c4e7 50%, #51c4e7 50%);
-  background: -moz-linear-gradient(180deg, #51c4e7 50%, #51c4e7 50%);
-  background: -o-linear-gradient(180deg, #51c4e7 50%, #51c4e7 50%);
-  background: linear-gradient(180deg, #51c4e7 50%, #51c4e7 50%);
-  background-color: #51c4e7;
-  color: #212121
-}
-
-.normal {
-  background: -webkit-linear-gradient(180deg, #a4acaf 50%, #a4acaf 50%);
-  background: -ms-linear-gradient(180deg, #a4acaf 50%, #a4acaf 50%);
-  background: -moz-linear-gradient(180deg, #a4acaf 50%, #a4acaf 50%);
-  background: -o-linear-gradient(180deg, #a4acaf 50%, #a4acaf 50%);
-  background: linear-gradient(180deg, #a4acaf 50%, #a4acaf 50%);
-  background-color: #a4acaf;
-  color: #212121
-}
-
-.poison {
-  background: -webkit-linear-gradient(180deg, #b97fc9 50%, #b97fc9 50%);
-  background: -ms-linear-gradient(180deg, #b97fc9 50%, #b97fc9 50%);
-  background: -moz-linear-gradient(180deg, #b97fc9 50%, #b97fc9 50%);
-  background: -o-linear-gradient(180deg, #b97fc9 50%, #b97fc9 50%);
-  background: linear-gradient(180deg, #b97fc9 50%, #b97fc9 50%);
-  background-color: #b97fc9;
-  color: #fff
-}
-
-.psychic {
-  background: -webkit-linear-gradient(180deg, #f366b9 50%, #f366b9 50%);
-  background: -ms-linear-gradient(180deg, #f366b9 50%, #f366b9 50%);
-  background: -moz-linear-gradient(180deg, #f366b9 50%, #f366b9 50%);
-  background: -o-linear-gradient(180deg, #f366b9 50%, #f366b9 50%);
-  background: linear-gradient(180deg, #f366b9 50%, #f366b9 50%);
-  background-color: #f366b9;
-  color: #fff
-}
-
-.rock {
-  background: -webkit-linear-gradient(180deg, #a38c21 50%, #a38c21 50%);
-  background: -ms-linear-gradient(180deg, #a38c21 50%, #a38c21 50%);
-  background: -moz-linear-gradient(180deg, #a38c21 50%, #a38c21 50%);
-  background: -o-linear-gradient(180deg, #a38c21 50%, #a38c21 50%);
-  background: linear-gradient(180deg, #a38c21 50%, #a38c21 50%);
-  background-color: #a38c21;
-  color: #fff
-}
-
-.steel {
-  background: -webkit-linear-gradient(180deg, #9eb7b8 50%, #9eb7b8 50%);
-  background: -ms-linear-gradient(180deg, #9eb7b8 50%, #9eb7b8 50%);
-  background: -moz-linear-gradient(180deg, #9eb7b8 50%, #9eb7b8 50%);
-  background: -o-linear-gradient(180deg, #9eb7b8 50%, #9eb7b8 50%);
-  background: linear-gradient(180deg, #9eb7b8 50%, #9eb7b8 50%);
-  background-color: #9eb7b8;
-  color: #212121
-}
-
-.water {
-  background: -webkit-linear-gradient(180deg, #4592c4 50%, #4592c4 50%);
-  background: -ms-linear-gradient(180deg, #4592c4 50%, #4592c4 50%);
-  background: -moz-linear-gradient(180deg, #4592c4 50%, #4592c4 50%);
-  background: -o-linear-gradient(180deg, #4592c4 50%, #4592c4 50%);
-  background: linear-gradient(180deg, #4592c4 50%, #4592c4 50%);
-  background-color: #4592c4;
-  color: #fff
-}
-
-.box-shadow{
-  box-shadow: rgba(0, 0, 0, 0.35) 0 5px 15px;
-  border-radius: 10px;
-}
-.gray{
-  color: gray;
-}
-
-

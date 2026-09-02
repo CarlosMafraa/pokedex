@@ -1,0 +1,153 @@
+:host ::ng-deep .pokemon-detail__content {
+  padding: 0;
+}
+
+.detail {
+  --band: var(--type-color, #7c8288);
+  display: flex;
+  flex-direction: column;
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.detail__band {
+  position: relative;
+  padding: 1.25rem 1.25rem 3.5rem;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--band) 82%, #fff), var(--band));
+  color: #fff;
+  text-align: center;
+}
+
+.detail__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.detail__close:hover,
+.detail__close:focus-visible {
+  background: rgba(255, 255, 255, 0.35);
+  outline: none;
+}
+
+.detail__number {
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.detail__name {
+  margin: 0.15rem 0 0.5rem;
+  color: #fff;
+}
+
+.detail__types {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.detail__type-badge {
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.detail__art {
+  display: block;
+  width: 190px;
+  height: 190px;
+  object-fit: contain;
+  margin: 0.5rem auto -3rem;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.3));
+}
+
+.detail__loading {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.detail__body {
+  padding: 3.25rem 1.25rem 1.25rem;
+}
+
+.detail__flavor {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}
+
+.detail__facts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+}
+.detail__facts div {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: var(--app-surface-2);
+}
+.detail__facts dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--app-text-muted);
+}
+.detail__facts dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.detail__subtitle {
+  margin: 0 0 0.5rem;
+}
+
+.detail__abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.detail__abilities li {
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--band);
+  color: var(--type-on-color, #fff);
+  font-size: 0.8rem;
+}
+
+.detail__stat {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.detail__stat-value {
+  color: var(--app-text-muted);
+}
+
+:host ::ng-deep .p-tablist-tab-list {
+  justify-content: center;
+}

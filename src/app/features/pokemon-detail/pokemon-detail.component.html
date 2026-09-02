@@ -1,0 +1,97 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="!$event && close()"
+  [modal]="true"
+  [draggable]="false"
+  [dismissableMask]="true"
+  [showHeader]="false"
+  [style]="{ width: 'min(92vw, 460px)', overflow: 'hidden' }"
+  contentStyleClass="pokemon-detail__content"
+>
+  <div class="detail" [class]="'type-' + primaryType()">
+    <div class="detail__band">
+      <button type="button" class="detail__close" aria-label="Fechar" (click)="close()">
+        &times;
+      </button>
+
+      @if (loading() && !pokemon()) {
+        <p class="detail__loading">Carregando…</p>
+      } @else if (pokemon()) {
+        @let p = pokemon()!;
+        <span class="detail__number">{{ p.id | pokedexNumber }}</span>
+        <h2 class="detail__name">{{ p.name | titlecase }}</h2>
+        <div class="detail__types">
+          @for (badge of typeBadges(); track badge.name) {
+            <span class="detail__type-badge" [class]="'type-' + badge.name">{{ badge.label }}</span>
+          }
+        </div>
+        <img class="detail__art" [src]="artwork()" [alt]="p.name" loading="eager" />
+      } @else {
+        <p class="detail__loading">Pokémon não encontrado.</p>
+      }
+    </div>
+
+    @if (pokemon(); as p) {
+      <div class="detail__body">
+        <p-tabs value="sobre">
+          <p-tablist>
+            <p-tab value="sobre">Sobre</p-tab>
+            <p-tab value="status">Status</p-tab>
+          </p-tablist>
+          <p-tabpanels>
+            <p-tabpanel value="sobre">
+              @if (flavorText()) {
+                <p class="detail__flavor">{{ flavorText() }}</p>
+              }
+              <dl class="detail__facts">
+                <div>
+                  <dt>Altura</dt>
+                  <dd>{{ heightInMeters(p.height) | number: '1.1-1' }} m</dd>
+                </div>
+                <div>
+                  <dt>Peso</dt>
+                  <dd>{{ weightInKg(p.weight) | number: '1.1-1' }} kg</dd>
+                </div>
+                <div>
+                  <dt>Exp. base</dt>
+                  <dd>{{ p.base_experience || '—' }}</dd>
+                </div>
+                @if (generationLabel()) {
+                  <div>
+                    <dt>Geração</dt>
+                    <dd>{{ generationLabel() }}</dd>
+                  </div>
+                }
+              </dl>
+              <h3 class="detail__subtitle">Habilidades</h3>
+              <ul class="detail__abilities">
+                @for (ability of p.abilities; track ability.ability.name) {
+                  <li>{{ ability.ability.name | titlecase }}</li>
+                } @empty {
+                  <li>—</li>
+                }
+              </ul>
+            </p-tabpanel>
+
+            <p-tabpanel value="status">
+              @for (stat of p.stats; track stat.stat.name; let i = $index) {
+                <div class="detail__stat">
+                  <span class="detail__stat-name">{{ statLabel(stat.stat.name) }}</span>
+                  <span class="detail__stat-value">{{ stat.base_stat }}</span>
+                </div>
+                <p-progressbar
+                  [value]="statPercent(stat.base_stat)"
+                  [showValue]="false"
+                  [style]="{ height: '6px' }"
+                  [color]="statColors[i % statColors.length]"
+                />
+              } @empty {
+                <p>Sem status.</p>
+              }
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
+      </div>
+    }
+  </div>
+</p-dialog>

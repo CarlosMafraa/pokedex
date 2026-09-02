@@ -1,0 +1,97 @@
+<div class="pokedex">
+  <header class="pokedex__header">
+    <img
+      ngSrc="assets/image/pokedex.png"
+      width="260"
+      height="87"
+      priority
+      alt="Pokédex"
+      class="pokedex__logo"
+    />
+    <button
+      type="button"
+      class="pokedex__theme"
+      [attr.aria-label]="theme.isDark() ? 'Ativar modo claro' : 'Ativar modo escuro'"
+      (click)="theme.toggle()"
+    >
+      <i class="pi" [class.pi-moon]="!theme.isDark()" [class.pi-sun]="theme.isDark()"></i>
+    </button>
+  </header>
+
+  <form class="pokedex__search" (ngSubmit)="submitSearch()">
+    <div class="pokedex__search-field">
+      <i class="pi pi-search pokedex__search-icon" aria-hidden="true"></i>
+      <input
+        pInputText
+        type="search"
+        name="busca"
+        placeholder="Nome ou número"
+        [ngModel]="query()"
+        (ngModelChange)="onQueryInput($event)"
+        aria-label="Buscar Pokémon"
+      />
+      @if (query()) {
+        <button
+          type="button"
+          class="pokedex__clear"
+          aria-label="Limpar busca"
+          (click)="clearSearch()"
+        >
+          <i class="pi pi-times" aria-hidden="true"></i>
+        </button>
+      }
+    </div>
+
+    <p-multiselect
+      [options]="typeOptions"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="selectedTypes()"
+      (ngModelChange)="onTypesChange($event)"
+      name="tipos"
+      placeholder="Tipos"
+      ariaLabel="Filtrar por tipo"
+      display="chip"
+      [showToggleAll]="false"
+      styleClass="pokedex__types"
+    />
+
+    <p-button type="submit" label="Buscar" icon="pi pi-search" [loading]="store.loading()" />
+  </form>
+
+  <main class="pokedex__results">
+    @if (store.loading()) {
+      <p class="pokedex__status">Carregando Pokédex…</p>
+    } @else if (store.error() === 'network') {
+      <div class="pokedex__status">
+        <p>Não foi possível carregar a Pokédex.</p>
+        <p-button label="Tentar de novo" (onClick)="submitSearch()" />
+      </div>
+    } @else if (store.isEmpty()) {
+      <div class="pokedex__status">
+        <p>Nada encontrado com esses filtros.</p>
+        <p-button label="Limpar filtros" severity="secondary" (onClick)="clearSearch()" />
+      </div>
+    } @else {
+      <ul class="pokedex__grid">
+        @for (entry of store.visibleEntries(); track entry.id) {
+          <li><app-pokemon-card [entry]="entry" /></li>
+        }
+      </ul>
+
+      @if (store.hasMore()) {
+        <div class="pokedex__more" appInViewport (inViewport)="loadMore()">
+          <p-button
+            label="Carregar mais"
+            severity="secondary"
+            [text]="true"
+            [loading]="store.loadingMore()"
+            (onClick)="loadMore()"
+          />
+        </div>
+      }
+    }
+  </main>
+</div>
+
+<router-outlet />

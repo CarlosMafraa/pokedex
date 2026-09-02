@@ -33,27 +33,23 @@
                 "glob": "**/*",
                 "input": "src/assets",
                 "output": "/assets"
-              },
-              {
-                "glob": ".nojekyll",
-                "input": "public",
-                "output": "/"
-              },
-              {
-                "glob": "404.html",
-                "input": "public",
-                "output": "/"
               }
             ],
             "styles": [
-              "src/styles.scss",
-              "node_modules/primeflex/primeflex.css"
+              "node_modules/primeicons/primeicons.css",
+              "src/styles.scss"
             ],
             "scripts": []
           },
           "configurations": {
             "production": {
               "baseHref": "/Pokedex/",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.production.ts"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",
@@ -111,10 +107,19 @@
               }
             ],
             "styles": [
-              "src/styles.scss",
-              "node_modules/primeflex/primeflex.css"
+              "node_modules/primeicons/primeicons.css",
+              "src/styles.scss"
             ],
             "scripts": []
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
           }
         }
       }
