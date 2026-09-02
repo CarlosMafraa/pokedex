@@ -28,20 +28,23 @@ test('carrega a primeira página com 60 cards e faz só 1 request de lista', asy
   expect(listRequests[0]).toContain('limit=60');
 });
 
-test('busca por nome abre o resultado e permite limpar', async ({ page }) => {
+test('busca é ao vivo (sem botão) e o campo tem um único "x" para limpar', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
-  await searchBox(page).fill('gengar');
-  await page.getByRole('button', { name: 'Buscar' }).click();
+  // não existe botão "Buscar"
+  await expect(page.getByRole('button', { name: 'Buscar' })).toHaveCount(0);
 
+  // digitar já filtra/busca, sem apertar nada
+  await searchBox(page).fill('gengar');
   await expect(page.locator('app-pokemon-card')).toHaveCount(1);
   await expect(page.locator('.card__name')).toHaveText('Gengar');
-  // com filtro ativo "Carregar mais" some (não induz que há mais resultados)
   await expect(page.getByRole('button', { name: /carregar mais/i })).toBeHidden();
 
+  // só um controle de limpar dentro do campo (nada de "x" nativo duplicado)
+  await expect(page.locator('.pokedex__search-field .pokedex__clear')).toHaveCount(1);
+
   await page.getByRole('button', { name: 'Limpar busca' }).click();
-  await expect(page.locator('app-pokemon-card').first()).toBeVisible();
   await expect(page.locator('app-pokemon-card')).toHaveCount(60);
   await expect(page.getByRole('button', { name: /carregar mais/i })).toBeVisible();
 });

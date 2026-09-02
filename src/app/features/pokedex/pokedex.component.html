@@ -18,13 +18,14 @@
     </button>
   </header>
 
-  <form class="pokedex__search" (ngSubmit)="submitSearch()">
+  <form class="pokedex__search" role="search" (ngSubmit)="submitSearch()">
     <div class="pokedex__search-field">
       <i class="pi pi-search pokedex__search-icon" aria-hidden="true"></i>
       <input
         pInputText
-        type="search"
+        type="text"
         name="busca"
+        autocomplete="off"
         placeholder="Nome ou número"
         [ngModel]="query()"
         (ngModelChange)="onQueryInput($event)"
@@ -55,8 +56,6 @@
       [showToggleAll]="false"
       styleClass="pokedex__types"
     />
-
-    <p-button type="submit" label="Buscar" icon="pi pi-search" [loading]="store.loading()" />
   </form>
 
   <main class="pokedex__results">

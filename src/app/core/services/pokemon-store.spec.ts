@@ -79,19 +79,35 @@ describe('PokemonStore', () => {
     await store.search('gyarados');
 
     expect(api.getDetails).toHaveBeenCalledWith('gyarados');
-    expect(store.entries().map((e) => e.name)).toEqual(['gyarados']);
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['gyarados']);
     expect(store.isSearchResult()).toBeTrue();
     expect(store.hasMore()).toBeFalse();
   });
 
-  it('search marca erro not-found quando a API falha', async () => {
+  it('filtro local instantâneo não chama a API', async () => {
+    api.getPage.and.resolveTo({
+      total: 2,
+      entries: [entry(1, 'bulbasaur'), entry(25, 'pikachu')],
+    });
+    await store.loadFirstPage();
+
+    await store.search('pika');
+
+    expect(api.getDetails).not.toHaveBeenCalled();
+    expect(store.isSearchResult()).toBeFalse();
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['pikachu']);
+  });
+
+  it('search silencioso (quiet) não seta erro nem toast', async () => {
     api.getPage.and.resolveTo({ total: 0, entries: [] });
     await store.loadFirstPage();
     api.getDetails.and.rejectWith(new Error('404'));
 
-    await store.search('missingno');
+    await store.search('missingno', { quiet: true });
+    expect(store.error()).toBeNull();
 
+    await store.search('missingno');
     expect(store.error()).toBe('not-found');
-    expect(store.entries()).toEqual([]);
+    expect(store.visibleEntries()).toEqual([]);
   });
 });

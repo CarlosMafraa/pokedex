@@ -24,7 +24,8 @@ export class PokemonStore {
   private readonly _error = signal<PokedexError>(null);
   private readonly _filterText = signal('');
   private readonly _typeFilters = signal<string[]>([]);
-  private readonly _isSearchResult = signal(false);
+  /** Resultado de uma busca exata na API (nome/número fora da lista carregada). */
+  private readonly _searchResult = signal<PokemonListEntry | null>(null);
 
   private readonly _selected = signal<PokemonDetails | undefined>(undefined);
   private readonly _selectedSpecies = signal<PokemonSpecies | undefined>(undefined);
@@ -37,13 +38,20 @@ export class PokemonStore {
   readonly error = this._error.asReadonly();
   readonly filterText = this._filterText.asReadonly();
   readonly typeFilters = this._typeFilters.asReadonly();
-  readonly isSearchResult = this._isSearchResult.asReadonly();
+  readonly isSearchResult = computed(() => this._searchResult() !== null);
   readonly selected = this._selected.asReadonly();
   readonly selectedSpecies = this._selectedSpecies.asReadonly();
   readonly detailLoading = this._detailLoading.asReadonly();
 
-  /** Lista visível após aplicar filtro de texto e de tipo sobre o que já foi carregado. */
+  /**
+   * Lista visível: o resultado da busca exata na API, ou a lista navegada
+   * filtrada em tempo real por texto e por tipo.
+   */
   readonly visibleEntries = computed(() => {
+    const hit = this._searchResult();
+    if (hit) {
+      return [hit];
+    }
     const term = this._filterText().trim().toLowerCase();
     const types = this._typeFilters();
     return this._entries().filter((entry) => {
@@ -56,13 +64,12 @@ export class PokemonStore {
   });
 
   /**
-   * "Carregar mais" só aparece quando estamos navegando a lista: nada de
-   * paginação durante uma busca por texto ou um resultado de busca exata
-   * (aí a paginação não tem relação com o que está na tela).
+   * "Carregar mais" só aparece na navegação da lista: nada de paginação
+   * durante uma busca por texto (aí a paginação não tem relação com a tela).
    */
   readonly hasMore = computed(
     () =>
-      !this._isSearchResult() &&
+      !this._searchResult() &&
       this._filterText().trim() === '' &&
       this._entries().length < this._total(),
   );
@@ -74,7 +81,7 @@ export class PokemonStore {
   async loadFirstPage(): Promise<void> {
     this._loading.set(true);
     this._error.set(null);
-    this._isSearchResult.set(false);
+    this._searchResult.set(null);
     try {
       const page = await this.api.getPage(PAGE_SIZE, 0);
       this._entries.set(page.entries);
@@ -118,16 +125,20 @@ export class PokemonStore {
   }
 
   /**
-   * Busca exata por nome ou número quando o filtro local não encontra nada.
-   * Com o campo vazio, volta para a listagem paginada.
+   * Filtro por texto: instantâneo sobre a lista carregada. Se nada casar
+   * localmente, tenta uma busca exata na API (nome/número). `quiet` evita
+   * o toast de erro — usado enquanto o usuário ainda está digitando.
    */
-  async search(term: string): Promise<void> {
+  async search(term: string, opts: { quiet?: boolean } = {}): Promise<void> {
     const trimmed = term.trim().toLowerCase();
     this._filterText.set(trimmed);
-    this._error.set(null);
+    if (!opts.quiet) {
+      this._error.set(null);
+    }
 
     if (!trimmed) {
-      await this.loadFirstPage();
+      this._searchResult.set(null);
+      this._error.set(null);
       return;
     }
 
@@ -135,37 +146,41 @@ export class PokemonStore {
       (entry) => entry.name.toLowerCase().includes(trimmed) || String(entry.id) === trimmed,
     );
     if (localHit) {
-      this._isSearchResult.set(false);
+      this._searchResult.set(null);
+      this._error.set(null);
       return;
     }
 
-    this._loading.set(true);
+    if (!opts.quiet) {
+      this._loading.set(true);
+    }
     try {
       const details = await this.api.getDetails(trimmed);
-      const entry: PokemonListEntry = {
+      this._searchResult.set({
         id: details.id,
         name: details.name,
         artworkUrl: this.api.artworkUrl(details.id),
         animatedSpriteUrl: this.api.animatedSpriteUrl(details.id),
         types: details.types.map((type) => type.type.name),
-      };
-      this._entries.set([entry]);
-      this._isSearchResult.set(true);
+      });
+      this._error.set(null);
     } catch {
-      this._error.set('not-found');
-      this._entries.set([]);
-      this._isSearchResult.set(true);
+      this._searchResult.set(null);
+      if (!opts.quiet) {
+        this._error.set('not-found');
+      }
     } finally {
-      this._loading.set(false);
+      if (!opts.quiet) {
+        this._loading.set(false);
+      }
     }
   }
 
   clearFilters(): void {
     this._filterText.set('');
     this._typeFilters.set([]);
-    if (this._isSearchResult()) {
-      void this.loadFirstPage();
-    }
+    this._searchResult.set(null);
+    this._error.set(null);
   }
 
   /** Preenche os tipos de um item de forma preguiçosa (chamado quando o card aparece). */

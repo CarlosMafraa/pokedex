@@ -1,7 +1,10 @@
 import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgOptimizedImage } from '@angular/common';
+import { Subject } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { MultiSelect } from 'primeng/multiselect';
@@ -42,8 +45,13 @@ export class PokedexComponent implements OnInit {
   }));
 
   private lastError: string | null = null;
+  private readonly typing$ = new Subject<string>();
 
   constructor() {
+    this.typing$.pipe(debounceTime(350), takeUntilDestroyed()).subscribe((value) => {
+      void this.store.search(value, { quiet: true });
+    });
+
     effect(() => {
       const error = this.store.error();
       if (error && error !== this.lastError) {
@@ -67,18 +75,21 @@ export class PokedexComponent implements OnInit {
     }
   }
 
+  /** Enter no campo: dispara a busca exata na hora (com feedback de erro). */
   submitSearch(): void {
     void this.store.search(this.query());
   }
 
   onQueryInput(value: string): void {
     this.query.set(value);
-    this.store.setFilterText(value);
+    this.store.setFilterText(value); // filtro local instantâneo
+    this.typing$.next(value); // busca exata na API, debounced e silenciosa
   }
 
   clearSearch(): void {
     this.query.set('');
     this.selectedTypes.set([]);
+    this.typing$.next(''); // cancela qualquer busca debounced pendente
     this.store.clearFilters();
   }
 
