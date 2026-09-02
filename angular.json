@@ -43,7 +43,7 @@
           },
           "configurations": {
             "production": {
-              "baseHref": "/Pokedex/",
+              "baseHref": "/pokedex/",
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",

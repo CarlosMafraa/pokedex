@@ -1,13 +1,13 @@
 # Pokédex
 
-[![Deploy to GitHub Pages](https://github.com/CarlosMafraa/Pokedex/actions/workflows/deploy.yml/badge.svg)](https://github.com/CarlosMafraa/Pokedex/actions/workflows/deploy.yml)
-[![CI](https://github.com/CarlosMafraa/Pokedex/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosMafraa/Pokedex/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/CarlosMafraa/pokedex/actions/workflows/deploy.yml/badge.svg)](https://github.com/CarlosMafraa/pokedex/actions/workflows/deploy.yml)
+[![CI](https://github.com/CarlosMafraa/pokedex/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosMafraa/pokedex/actions/workflows/ci.yml)
 
 Pokédex em Angular 19 (standalone + signals) consumindo a [PokéAPI](https://pokeapi.co/).
 Permite navegar por todas as gerações, buscar por nome/número, filtrar por tipo e abrir
 o detalhe de cada Pokémon (arte oficial, descrição, geração, status).
 
-🔗 **Demo:** https://carlosmafraa.github.io/Pokedex/
+🔗 **Demo:** https://carlosmafraa.github.io/pokedex/
 
 ## ✨ Recursos
 
@@ -34,8 +34,8 @@ o detalhe de cada Pokémon (arte oficial, descrição, geração, status).
 ## 🚀 Começando
 
 ```bash
-git clone https://github.com/CarlosMafraa/Pokedex.git
-cd Pokedex
+git clone https://github.com/CarlosMafraa/pokedex.git
+cd pokedex
 npm install
 npm start           # http://localhost:4200
 ```
@@ -65,9 +65,9 @@ e2e/          testes Playwright
 ## 🌐 Deploy
 
 Push em `master` dispara o workflow [`deploy.yml`](.github/workflows/deploy.yml), que
-faz o build com `baseHref=/Pokedex/` e publica em GitHub Pages. O
-[`public/404.html`](public/404.html) + script no `index.html` reconstroem rotas
-profundas (padrão *spa-github-pages*).
+faz o build com `baseHref=/pokedex/` (mesmo nome do repositório) e publica em
+GitHub Pages. O [`public/404.html`](public/404.html) + script no `index.html`
+reconstroem rotas profundas (padrão *spa-github-pages*).
 
 ## 🙏 Créditos
 
