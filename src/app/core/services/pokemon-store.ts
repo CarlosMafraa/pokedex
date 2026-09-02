@@ -3,22 +3,32 @@ import { PokemonService } from './pokemon.service';
 import { PokemonListEntry } from '@core/models/pokemon-list-entry';
 import { PokemonDetails } from '@core/models/pokemon-details';
 import { PokemonSpecies } from '@core/models/pokemon-species';
-
-export const PAGE_SIZE = 60;
+import {
+  Generation,
+  GENERATIONS,
+  generationOf,
+  generationSize,
+} from '@core/models/constants/pokemon-generations';
 
 export type PokedexError = 'network' | 'not-found' | null;
 
+export interface PokedexSection {
+  /** Rótulo da geração; `null` quando é uma lista filtrada/buscada (sem divisão). */
+  label: string | null;
+  entries: PokemonListEntry[];
+}
+
 /**
- * Estado central da Pokédex: lista paginada, filtros (texto + tipo) e o
- * Pokémon selecionado para o detalhe. Os componentes só leem signals e
- * chamam métodos — nenhuma requisição fica espalhada pelos componentes.
+ * Estado central da Pokédex. A navegação carrega uma geração inteira por vez
+ * (a primeira são os 151 da Geração I) e a grade é dividida por geração, já
+ * que não há outra forma de identificar em que geração o usuário está.
  */
 @Injectable({ providedIn: 'root' })
 export class PokemonStore {
   private readonly api = inject(PokemonService);
 
   private readonly _entries = signal<PokemonListEntry[]>([]);
-  private readonly _total = signal(0);
+  private readonly _loadedGens = signal(0);
   private readonly _loading = signal(false);
   private readonly _loadingMore = signal(false);
   private readonly _error = signal<PokedexError>(null);
@@ -32,7 +42,6 @@ export class PokemonStore {
   private readonly _detailLoading = signal(false);
 
   readonly entries = this._entries.asReadonly();
-  readonly total = this._total.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly loadingMore = this._loadingMore.asReadonly();
   readonly error = this._error.asReadonly();
@@ -43,10 +52,11 @@ export class PokemonStore {
   readonly selectedSpecies = this._selectedSpecies.asReadonly();
   readonly detailLoading = this._detailLoading.asReadonly();
 
-  /**
-   * Lista visível: o resultado da busca exata na API, ou a lista navegada
-   * filtrada em tempo real por texto e por tipo.
-   */
+  private readonly _hasFilter = computed(
+    () => this._filterText().trim() !== '' || this._typeFilters().length > 0,
+  );
+
+  /** Lista plana visível (resultado de busca, ou navegação filtrada por texto/tipo). */
   readonly visibleEntries = computed(() => {
     const hit = this._searchResult();
     if (hit) {
@@ -63,15 +73,35 @@ export class PokemonStore {
     });
   });
 
-  /**
-   * "Carregar mais" só aparece na navegação da lista: nada de paginação
-   * durante uma busca por texto (aí a paginação não tem relação com a tela).
-   */
+  /** Grade dividida por geração quando navegando; uma seção só quando filtrando/buscando. */
+  readonly visibleSections = computed<PokedexSection[]>(() => {
+    const flat = this.visibleEntries();
+    if (this._searchResult() || this._hasFilter()) {
+      return flat.length ? [{ label: null, entries: flat }] : [];
+    }
+    const sections: PokedexSection[] = [];
+    for (const entry of flat) {
+      const label = generationOf(entry.id)?.label ?? 'Outros';
+      const last = sections.at(-1);
+      if (last && last.label === label) {
+        last.entries.push(entry);
+      } else {
+        sections.push({ label, entries: [entry] });
+      }
+    }
+    return sections;
+  });
+
+  /** Próxima geração ainda não carregada (para o rótulo do botão "carregar mais"). */
+  readonly nextGeneration = computed<Generation | null>(
+    () => GENERATIONS[this._loadedGens()] ?? null,
+  );
+
   readonly hasMore = computed(
     () =>
       !this._searchResult() &&
       this._filterText().trim() === '' &&
-      this._entries().length < this._total(),
+      this._loadedGens() < GENERATIONS.length,
   );
 
   readonly isEmpty = computed(
@@ -83,12 +113,14 @@ export class PokemonStore {
     this._error.set(null);
     this._searchResult.set(null);
     try {
-      const page = await this.api.getPage(PAGE_SIZE, 0);
+      const gen = GENERATIONS[0];
+      const page = await this.api.getPage(generationSize(gen), gen.start - 1);
       this._entries.set(page.entries);
-      this._total.set(page.total);
+      this._loadedGens.set(1);
     } catch {
       this._error.set('network');
       this._entries.set([]);
+      this._loadedGens.set(0);
     } finally {
       this._loading.set(false);
     }
@@ -98,11 +130,12 @@ export class PokemonStore {
     if (this._loadingMore() || !this.hasMore()) {
       return;
     }
+    const gen = GENERATIONS[this._loadedGens()];
     this._loadingMore.set(true);
     try {
-      const page = await this.api.getPage(PAGE_SIZE, this._entries().length);
+      const page = await this.api.getPage(generationSize(gen), gen.start - 1);
       this._entries.update((current) => [...current, ...page.entries]);
-      this._total.set(page.total);
+      this._loadedGens.update((n) => n + 1);
       if (this._typeFilters().length > 0) {
         void this.hydrateAllTypes();
       }

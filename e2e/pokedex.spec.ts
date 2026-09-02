@@ -12,7 +12,7 @@ const htmlClass = (page: Page) => page.evaluate(() => document.documentElement.c
 const pToken = (page: Page, name: string) =>
   page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name);
 
-test('carrega a primeira página com 60 cards e faz só 1 request de lista', async ({ page }) => {
+test('carga inicial é a Geração I (151) com um único request de lista', async ({ page }) => {
   const listRequests: string[] = [];
   page.on('request', (req) => {
     if (req.url().includes('/api/v2/pokemon?')) {
@@ -23,9 +23,11 @@ test('carrega a primeira página com 60 cards e faz só 1 request de lista', asy
   await page.goto('/');
   await waitForGrid(page);
 
-  await expect(page.locator('app-pokemon-card')).toHaveCount(60);
+  await expect(page.locator('app-pokemon-card')).toHaveCount(151);
   expect(listRequests).toHaveLength(1);
-  expect(listRequests[0]).toContain('limit=60');
+  expect(listRequests[0]).toContain('limit=151');
+  expect(listRequests[0]).toContain('offset=0');
+  await expect(page.getByRole('heading', { name: 'Geração I' })).toBeVisible();
 });
 
 test('busca é ao vivo (sem botão) e o campo tem um único "x" para limpar', async ({ page }) => {
@@ -39,14 +41,16 @@ test('busca é ao vivo (sem botão) e o campo tem um único "x" para limpar', as
   await searchBox(page).fill('gengar');
   await expect(page.locator('app-pokemon-card')).toHaveCount(1);
   await expect(page.locator('.card__name')).toHaveText('Gengar');
-  await expect(page.getByRole('button', { name: /carregar mais/i })).toBeHidden();
+  await expect(page.getByRole('button', { name: /carregar/i })).toBeHidden();
+  // com filtro ativo a grade não é dividida por geração
+  await expect(page.locator('.pokedex__gen')).toHaveCount(0);
 
   // só um controle de limpar dentro do campo (nada de "x" nativo duplicado)
   await expect(page.locator('.pokedex__search-field .pokedex__clear')).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Limpar busca' }).click();
-  await expect(page.locator('app-pokemon-card')).toHaveCount(60);
-  await expect(page.getByRole('button', { name: /carregar mais/i })).toBeVisible();
+  await expect(page.locator('app-pokemon-card')).toHaveCount(151);
+  await expect(page.getByRole('button', { name: /carregar/i })).toBeVisible();
 });
 
 test('filtro local por número mostra 1 card, centralizado e sem "carregar mais"', async ({
@@ -58,7 +62,7 @@ test('filtro local por número mostra 1 card, centralizado e sem "carregar mais"
   await searchBox(page).fill('1');
   await expect(page.locator('app-pokemon-card')).toHaveCount(1);
   await expect(page.locator('.card__name')).toHaveText('Bulbasaur');
-  await expect(page.getByRole('button', { name: /carregar mais/i })).toBeHidden();
+  await expect(page.getByRole('button', { name: /carregar/i })).toBeHidden();
 
   // grade centralizada: o card fica aproximadamente no centro horizontal da lista
   const grid = page.locator('.pokedex__grid');
@@ -104,13 +108,18 @@ test('abre o detalhe via card e via deep-link', async ({ page }) => {
   await expect(page.locator('app-pokemon-detail')).toContainText('122.0 kg');
 });
 
-test('scroll infinito carrega mais Pokémon', async ({ page }) => {
+test('carregar mais traz a próxima geração, com seu cabeçalho', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
-  await expect(page.locator('app-pokemon-card')).toHaveCount(60);
+  await expect(page.locator('app-pokemon-card')).toHaveCount(151);
+  await expect(page.getByRole('heading', { name: 'Geração II' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: /carregar mais/i }).click();
-  await expect(page.locator('app-pokemon-card')).toHaveCount(120);
+  await page.getByRole('button', { name: /carregar geração ii/i }).click();
+
+  // Gen I (151) + Gen II (100)
+  await expect(page.locator('app-pokemon-card')).toHaveCount(251);
+  await expect(page.getByRole('heading', { name: 'Geração II' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /carregar geração iii/i })).toBeVisible();
 });
 
 test('dark mode: alterna tema do app e do PrimeNG e persiste após reload', async ({ page }) => {

@@ -72,16 +72,21 @@
         <p-button label="Limpar filtros" severity="secondary" (onClick)="clearSearch()" />
       </div>
     } @else {
-      <ul class="pokedex__grid">
-        @for (entry of store.visibleEntries(); track entry.id) {
-          <li><app-pokemon-card [entry]="entry" /></li>
+      @for (section of store.visibleSections(); track section.label) {
+        @if (section.label) {
+          <h2 class="pokedex__gen">{{ section.label }}</h2>
         }
-      </ul>
+        <ul class="pokedex__grid">
+          @for (entry of section.entries; track entry.id) {
+            <li><app-pokemon-card [entry]="entry" /></li>
+          }
+        </ul>
+      }
 
       @if (store.hasMore()) {
         <div class="pokedex__more" appInViewport (inViewport)="loadMore()">
           <p-button
-            label="Carregar mais"
+            [label]="'Carregar ' + (store.nextGeneration()?.label ?? 'mais')"
             severity="secondary"
             [text]="true"
             [loading]="store.loadingMore()"

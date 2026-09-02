@@ -28,17 +28,56 @@ describe('PokemonStore', () => {
     store = TestBed.inject(PokemonStore);
   });
 
-  it('loadFirstPage popula entries e total', async () => {
+  it('loadFirstPage carrega a Geração I (limit 151, offset 0) e ainda há mais', async () => {
     api.getPage.and.resolveTo({
-      total: 3,
+      total: 1302,
       entries: [entry(1, 'bulbasaur'), entry(4, 'charmander')],
     });
 
     await store.loadFirstPage();
 
+    expect(api.getPage).toHaveBeenCalledWith(151, 0);
     expect(store.entries().length).toBe(2);
-    expect(store.total()).toBe(3);
     expect(store.hasMore()).toBeTrue();
+    expect(store.nextGeneration()?.label).toBe('Geração II');
+  });
+
+  it('loadMore carrega a próxima geração (Gen II: limit 100, offset 151)', async () => {
+    api.getPage.and.resolveTo({ total: 1302, entries: [entry(1, 'bulbasaur')] });
+    await store.loadFirstPage();
+
+    api.getPage.and.resolveTo({ total: 1302, entries: [entry(152, 'chikorita')] });
+    await store.loadMore();
+
+    expect(api.getPage).toHaveBeenCalledWith(100, 151);
+    expect(store.entries().map((e) => e.id)).toEqual([1, 152]);
+  });
+
+  it('visibleSections divide a lista navegada por geração', async () => {
+    api.getPage.and.resolveTo({
+      total: 1302,
+      entries: [entry(1, 'bulbasaur'), entry(151, 'mew'), entry(152, 'chikorita')],
+    });
+    await store.loadFirstPage();
+    api.getPage.and.resolveTo({ total: 1302, entries: [entry(152, 'chikorita')] });
+    await store.loadMore();
+
+    const labels = store.visibleSections().map((s) => s.label);
+    expect(labels).toEqual(['Geração I', 'Geração II']);
+  });
+
+  it('com filtro ativo a grade vira uma seção só (sem divisão por geração)', async () => {
+    api.getPage.and.resolveTo({
+      total: 1302,
+      entries: [entry(1, 'bulbasaur', ['grass']), entry(4, 'charmander', ['fire'])],
+    });
+    await store.loadFirstPage();
+
+    store.setTypeFilters(['fire']);
+    const sections = store.visibleSections();
+    expect(sections.length).toBe(1);
+    expect(sections[0].label).toBeNull();
+    expect(sections[0].entries.map((e) => e.name)).toEqual(['charmander']);
   });
 
   it('visibleEntries filtra por texto', async () => {
