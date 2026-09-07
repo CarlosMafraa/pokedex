@@ -17,7 +17,7 @@ o detalhe de cada Pokémon (arte oficial, descrição, geração, status).
 - Detalhe em rota própria (`/pokemon/:nome`) — link compartilhável
 - Modo claro/escuro persistente (segue o sistema por padrão)
 - Cache em IndexedDB (funciona offline após a primeira visita; em falha de rede
-  serve o último dado conhecido — *stale-if-error*)
+  serve o último dado conhecido — _stale-if-error_)
 - Fonte auto-hospedada (`@fontsource`), CDN de imagens no jsDelivr, CSP restrita
 
 ## 🛠️ Stack
@@ -44,15 +44,15 @@ npm start           # http://localhost:4200
 
 ## 📜 Scripts
 
-| Script | Descrição |
-|---|---|
-| `npm start` | Servidor de desenvolvimento |
-| `npm run build` | Build de produção (`dist/pokedex`) |
-| `npm test` | Testes unitários (Karma, modo watch) |
-| `npm run test:ci` | Unitários headless com cobertura |
-| `npm run e2e` | Testes end-to-end (Playwright) · `e2e:ui` abre o runner |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier (escreve) · `format:check` só valida |
+| Script            | Descrição                                               |
+| ----------------- | ------------------------------------------------------- |
+| `npm start`       | Servidor de desenvolvimento                             |
+| `npm run build`   | Build de produção (`dist/pokedex`)                      |
+| `npm test`        | Testes unitários (Karma, modo watch)                    |
+| `npm run test:ci` | Unitários headless com cobertura                        |
+| `npm run e2e`     | Testes end-to-end (Playwright) · `e2e:ui` abre o runner |
+| `npm run lint`    | ESLint                                                  |
+| `npm run format`  | Prettier (escreve) · `format:check` só valida           |
 
 ## 📂 Estrutura
 
@@ -70,7 +70,7 @@ Push em `master` dispara o workflow [`deploy.yml`](.github/workflows/deploy.yml)
 faz o build com `baseHref=/pokedex/` (mesmo nome do repositório) e publica em
 GitHub Pages (`actions/deploy-pages`). O [`public/404.html`](public/404.html) +
 [`public/spa-redirect.js`](public/spa-redirect.js) reconstroem rotas profundas
-(padrão *spa-github-pages*).
+(padrão _spa-github-pages_).
 
 > **Ao renomear o repositório ou usar domínio próprio**, ajuste em conjunto:
 > `baseHref` em [`angular.json`](angular.json), o `pathSegmentsToKeep` em
@@ -82,11 +82,8 @@ GitHub Pages (`actions/deploy-pages`). O [`public/404.html`](public/404.html) +
   ficam em [`pokemon-generations.ts`](src/app/core/models/constants/pokemon-generations.ts).
   Pokémon de gerações futuras aparecem sob o rótulo "Outros" até a constante ser
   atualizada — falha segura, não quebra a navegação.
-- **`content-visibility` na grade.** Em engines sem suporte (Safari &lt; 18) o
-  atributo é ignorado sem prejuízo visual; nesses browsers o Ctrl+F pode não
-  encontrar cards ainda não renderizados.
-- **PokéAPI / jsDelivr** não têm SLA. O app mitiga com cache de 24 h, *retry*,
-  timeout de 15 s e *stale-if-error*, mas uma indisponibilidade prolongada de
+- **PokéAPI / jsDelivr** não têm SLA. O app mitiga com cache de 24 h, _retry_,
+  timeout de 15 s e _stale-if-error_, mas uma indisponibilidade prolongada de
   ambos deixa a Pokédex sem dados novos.
 
 ## 🙏 Créditos

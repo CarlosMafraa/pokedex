@@ -19,7 +19,10 @@
 }
 
 .pokedex__logo {
-  height: auto;
+  /* Altura fixa: o header reserva o espaço antes da imagem carregar, sem
+     layout shift. `width: auto` mantém a proporção (~3,38:1). */
+  height: 72px;
+  width: auto;
   max-width: 60vw;
 }
 
