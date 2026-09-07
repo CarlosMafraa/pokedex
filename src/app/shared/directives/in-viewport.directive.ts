@@ -1,8 +1,24 @@
-import { Directive, ElementRef, inject, NgZone, OnDestroy, OnInit, output } from '@angular/core';
+import {
+  booleanAttribute,
+  Directive,
+  ElementRef,
+  inject,
+  Input,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  output,
+} from '@angular/core';
 
 /**
- * Emite `inViewport` uma única vez, quando o elemento entra na área visível.
- * Usado para carregar dados de um card só quando ele aparece na tela.
+ * Emite `inViewport` quando o elemento entra na área visível.
+ *
+ * - Padrão: dispara uma única vez e para de observar (ex.: carregar os dados de
+ *   um card quando ele aparece).
+ * - Com `appInViewportRepeat`: dispara toda vez que o elemento reentra na
+ *   viewport. Como o IntersectionObserver só notifica em transições, um
+ *   sentinela de scroll infinito carrega uma página por vez, sem encadear
+ *   várias cargas enquanto continua visível.
  */
 @Directive({
   selector: '[appInViewport]',
@@ -13,6 +29,8 @@ export class InViewportDirective implements OnInit, OnDestroy {
   private readonly zone = inject(NgZone);
   private observer?: IntersectionObserver;
 
+  @Input({ alias: 'appInViewportRepeat', transform: booleanAttribute }) repeat = false;
+
   readonly inViewport = output<void>();
 
   ngOnInit(): void {
@@ -20,6 +38,7 @@ export class InViewportDirective implements OnInit, OnDestroy {
       this.emit();
       return;
     }
+
     this.zone.runOutsideAngular(() => {
       this.observer = new IntersectionObserver(
         (entries) => {
@@ -34,8 +53,10 @@ export class InViewportDirective implements OnInit, OnDestroy {
   }
 
   private emit(): void {
-    this.observer?.disconnect();
-    this.observer = undefined;
+    if (!this.repeat) {
+      this.observer?.disconnect();
+      this.observer = undefined;
+    }
     this.zone.run(() => this.inViewport.emit());
   }
 

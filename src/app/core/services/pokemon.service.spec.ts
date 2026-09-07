@@ -1,32 +1,45 @@
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { idFromUrl, PokemonService } from './pokemon.service';
 import { CacheService } from './cache.service';
 
 /** Cache em memória para não tocar no IndexedDB durante os testes. */
 class InMemoryCache {
-  private store = new Map<string, unknown>();
+  private fresh = new Map<string, unknown>();
+  private stale = new Map<string, unknown>();
   get<T>(key: string) {
-    return Promise.resolve((this.store.get(key) as T) ?? null);
+    return Promise.resolve((this.fresh.get(key) as T) ?? null);
   }
   peek<T>(key: string) {
     return this.get<T>(key);
   }
+  peekStale<T>(key: string) {
+    return Promise.resolve((this.fresh.get(key) ?? this.stale.get(key) ?? null) as T | null);
+  }
   set<T>(key: string, data: T) {
-    this.store.set(key, data);
+    this.fresh.set(key, data);
     return Promise.resolve();
   }
   remove(key: string) {
-    this.store.delete(key);
+    this.fresh.delete(key);
+    this.stale.delete(key);
     return Promise.resolve();
   }
   clearAll() {
-    this.store.clear();
+    this.fresh.clear();
+    this.stale.clear();
     return Promise.resolve();
   }
   has(key: string) {
-    return Promise.resolve(this.store.has(key));
+    return Promise.resolve(this.fresh.has(key));
+  }
+  /** Helper de teste: transforma um item válido em vencido (só via peekStale). */
+  expire(key: string) {
+    if (this.fresh.has(key)) {
+      this.stale.set(key, this.fresh.get(key));
+      this.fresh.delete(key);
+    }
   }
 }
 
@@ -47,7 +60,8 @@ describe('PokemonService', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  // `ignoreCancelled`: o operador `timeout` cancela a requisição pendurada.
+  afterEach(() => httpMock.verify({ ignoreCancelled: true }));
 
   /** Deixa a leitura assíncrona do cache resolver antes do disparo do HTTP. */
   const flush = async () => {
@@ -93,4 +107,81 @@ describe('PokemonService', () => {
     httpMock.expectNone('https://pokeapi.co/api/v2/pokemon/pikachu');
     await second;
   });
+
+  it('repete uma vez em falha transitória (5xx) e resolve na segunda', fakeAsync(() => {
+    let result: unknown;
+    void service.getDetails('pikachu').then((r) => (result = r));
+    tick(); // leitura do cache
+
+    httpMock
+      .expectOne('https://pokeapi.co/api/v2/pokemon/pikachu')
+      .flush('boom', { status: 503, statusText: 'Service Unavailable' });
+    tick(500); // espera do retry
+
+    httpMock
+      .expectOne('https://pokeapi.co/api/v2/pokemon/pikachu')
+      .flush({ id: 25, name: 'pikachu' });
+    tick();
+
+    expect(result).toEqual(jasmine.objectContaining({ id: 25 }));
+  }));
+
+  it('não repete em 404 — erro de cliente propaga na hora', fakeAsync(() => {
+    let error: unknown;
+    void service.getDetails('missingno').catch((e) => (error = e));
+    tick();
+
+    httpMock
+      .expectOne('https://pokeapi.co/api/v2/pokemon/missingno')
+      .flush('not found', { status: 404, statusText: 'Not Found' });
+    tick(500);
+
+    httpMock.expectNone('https://pokeapi.co/api/v2/pokemon/missingno');
+    expect((error as HttpErrorResponse).status).toBe(404);
+  }));
+
+  it('timeout: aborta requisição pendurada e rejeita com TimeoutError', fakeAsync(() => {
+    let error: unknown;
+    void service.getDetails('snorlax').catch((e) => (error = e));
+    tick();
+
+    httpMock.expectOne('https://pokeapi.co/api/v2/pokemon/snorlax'); // servidor não responde
+    tick(15_000); // dispara o timeout
+    tick(500); // espera do retry (TimeoutError é transitório)
+
+    httpMock.expectOne('https://pokeapi.co/api/v2/pokemon/snorlax'); // 2ª tentativa, também pendura
+    tick(15_000);
+    tick();
+
+    expect((error as { name?: string })?.name).toBe('TimeoutError');
+  }));
+
+  it('stale-if-error: serve o item vencido quando o fetch falha', fakeAsync(() => {
+    const cache = TestBed.inject(CacheService) as unknown as InMemoryCache;
+
+    let first: unknown;
+    void service.getDetails('pikachu').then((v) => (first = v));
+    tick();
+    httpMock
+      .expectOne('https://pokeapi.co/api/v2/pokemon/pikachu')
+      .flush({ id: 25, name: 'pikachu' });
+    tick();
+    expect(first).toEqual(jasmine.objectContaining({ id: 25 }));
+
+    cache.expire('pokemon_details_pikachu');
+
+    let second: unknown;
+    void service.getDetails('pikachu').then((v) => (second = v));
+    tick();
+    httpMock
+      .expectOne('https://pokeapi.co/api/v2/pokemon/pikachu')
+      .flush('down', { status: 503, statusText: 'Service Unavailable' });
+    tick(500);
+    httpMock
+      .expectOne('https://pokeapi.co/api/v2/pokemon/pikachu')
+      .flush('down', { status: 503, statusText: 'Service Unavailable' });
+    tick();
+
+    expect(second).toEqual(jasmine.objectContaining({ id: 25 }));
+  }));
 });

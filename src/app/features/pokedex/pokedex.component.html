@@ -1,13 +1,15 @@
 <div class="pokedex">
   <header class="pokedex__header">
-    <img
-      ngSrc="assets/image/pokedex.png"
-      width="260"
-      height="87"
-      priority
-      alt="Pokédex"
-      class="pokedex__logo"
-    />
+    <h1 class="pokedex__title">
+      <img
+        ngSrc="assets/image/pokedex.png"
+        width="260"
+        height="87"
+        priority
+        alt="Pokédex"
+        class="pokedex__logo"
+      />
+    </h1>
     <button
       type="button"
       class="pokedex__theme"
@@ -53,6 +55,7 @@
       placeholder="Tipos"
       ariaLabel="Filtrar por tipo"
       display="chip"
+      [loading]="store.typeLoading()"
       [showToggleAll]="false"
       styleClass="pokedex__types"
     />
@@ -61,10 +64,10 @@
   <main class="pokedex__results">
     @if (store.loading()) {
       <p class="pokedex__status">Carregando Pokédex…</p>
-    } @else if (store.error() === 'network') {
+    } @else if (store.error() === 'network' && store.entries().length === 0) {
       <div class="pokedex__status">
         <p>Não foi possível carregar a Pokédex.</p>
-        <p-button label="Tentar de novo" (onClick)="submitSearch()" />
+        <p-button label="Tentar de novo" (onClick)="retryInitialLoad()" />
       </div>
     } @else if (store.isEmpty()) {
       <div class="pokedex__status">
@@ -84,7 +87,7 @@
       }
 
       @if (store.hasMore()) {
-        <div class="pokedex__more" appInViewport (inViewport)="loadMore()">
+        <div class="pokedex__more" appInViewport appInViewportRepeat (inViewport)="loadMore()">
           <p-button
             [label]="'Carregar ' + (store.nextGeneration()?.label ?? 'mais')"
             severity="secondary"

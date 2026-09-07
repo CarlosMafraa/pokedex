@@ -22,11 +22,19 @@ export class PokemonCardComponent {
   readonly hovered = signal(false);
   readonly artworkFailed = signal(false);
 
+  /** Respeita "reduzir movimento": não troca para o GIF ao passar o mouse. */
+  private readonly reduceMotion =
+    typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   readonly primaryType = computed(() => this.entry().types?.[0] ?? null);
+
+  readonly showingAnimated = computed(
+    () => this.artworkFailed() || (this.hovered() && !this.reduceMotion),
+  );
 
   readonly currentImage = computed(() => {
     const e = this.entry();
-    if (this.artworkFailed() || this.hovered()) {
+    if (this.showingAnimated()) {
       return e.animatedSpriteUrl;
     }
     return e.artworkUrl;

@@ -1,4 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { PokemonService } from './pokemon.service';
 import { PokemonListEntry } from '@core/models/pokemon-list-entry';
 import { PokemonDetails } from '@core/models/pokemon-details';
@@ -34,16 +35,22 @@ export class PokemonStore {
   private readonly _error = signal<PokedexError>(null);
   private readonly _filterText = signal('');
   private readonly _typeFilters = signal<string[]>([]);
+  /** União dos ids nacionais dos tipos selecionados; `null` = sem filtro de tipo. */
+  private readonly _typeMemberIds = signal<Set<number> | null>(null);
+  private readonly _typeLoading = signal(false);
+  private typeFilterToken = 0;
   /** Resultado de uma busca exata na API (nome/número fora da lista carregada). */
   private readonly _searchResult = signal<PokemonListEntry | null>(null);
 
   private readonly _selected = signal<PokemonDetails | undefined>(undefined);
   private readonly _selectedSpecies = signal<PokemonSpecies | undefined>(undefined);
   private readonly _detailLoading = signal(false);
+  private readonly _detailError = signal<PokedexError>(null);
 
   readonly entries = this._entries.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly loadingMore = this._loadingMore.asReadonly();
+  readonly typeLoading = this._typeLoading.asReadonly();
   readonly error = this._error.asReadonly();
   readonly filterText = this._filterText.asReadonly();
   readonly typeFilters = this._typeFilters.asReadonly();
@@ -51,10 +58,7 @@ export class PokemonStore {
   readonly selected = this._selected.asReadonly();
   readonly selectedSpecies = this._selectedSpecies.asReadonly();
   readonly detailLoading = this._detailLoading.asReadonly();
-
-  private readonly _hasFilter = computed(
-    () => this._filterText().trim() !== '' || this._typeFilters().length > 0,
-  );
+  readonly detailError = this._detailError.asReadonly();
 
   /** Lista plana visível (resultado de busca, ou navegação filtrada por texto/tipo). */
   readonly visibleEntries = computed(() => {
@@ -63,12 +67,11 @@ export class PokemonStore {
       return [hit];
     }
     const term = this._filterText().trim().toLowerCase();
-    const types = this._typeFilters();
+    const typeIds = this._typeMemberIds();
     return this._entries().filter((entry) => {
       const matchesText =
         !term || entry.name.toLowerCase().includes(term) || String(entry.id) === term;
-      const matchesType =
-        types.length === 0 || (entry.types ?? []).some((type) => types.includes(type));
+      const matchesType = !typeIds || typeIds.has(entry.id);
       return matchesText && matchesType;
     });
   });
@@ -76,7 +79,11 @@ export class PokemonStore {
   /** Grade dividida por geração quando navegando; uma seção só quando filtrando/buscando. */
   readonly visibleSections = computed<PokedexSection[]>(() => {
     const flat = this.visibleEntries();
-    if (this._searchResult() || this._hasFilter()) {
+    // Enquanto os ids do filtro de tipo ainda não chegaram, mantém a divisão
+    // por geração para não piscar a lista inteira sem cabeçalhos.
+    const filtering =
+      this._searchResult() || this._filterText().trim() !== '' || this._typeMemberIds() !== null;
+    if (filtering) {
       return flat.length ? [{ label: null, entries: flat }] : [];
     }
     const sections: PokedexSection[] = [];
@@ -101,11 +108,16 @@ export class PokemonStore {
     () =>
       !this._searchResult() &&
       this._filterText().trim() === '' &&
+      this._typeMemberIds() === null &&
       this._loadedGens() < GENERATIONS.length,
   );
 
   readonly isEmpty = computed(
-    () => !this._loading() && !this._error() && this.visibleEntries().length === 0,
+    () =>
+      !this._loading() &&
+      !this._typeLoading() &&
+      !this._error() &&
+      this.visibleEntries().length === 0,
   );
 
   async loadFirstPage(): Promise<void> {
@@ -132,13 +144,11 @@ export class PokemonStore {
     }
     const gen = GENERATIONS[this._loadedGens()];
     this._loadingMore.set(true);
+    this._error.set(null);
     try {
       const page = await this.api.getPage(generationSize(gen), gen.start - 1);
       this._entries.update((current) => [...current, ...page.entries]);
       this._loadedGens.update((n) => n + 1);
-      if (this._typeFilters().length > 0) {
-        void this.hydrateAllTypes();
-      }
     } catch {
       this._error.set('network');
     } finally {
@@ -150,10 +160,78 @@ export class PokemonStore {
     this._filterText.set(text);
   }
 
+  /**
+   * Filtro por tipo: uma requisição a `/type/{nome}` por tipo selecionado
+   * (resultado em cache), unindo os ids. Em seguida carrega as gerações que
+   * ainda faltam e contêm algum Pokémon do filtro, para o usuário ver o
+   * conjunto completo sem clicar em "carregar mais". Só o pedido mais recente
+   * é aplicado.
+   */
   setTypeFilters(types: string[]): void {
     this._typeFilters.set(types);
-    if (types.length > 0) {
-      void this.hydrateAllTypes();
+    const token = ++this.typeFilterToken;
+
+    if (types.length === 0) {
+      this._typeMemberIds.set(null);
+      this._typeLoading.set(false);
+      return;
+    }
+
+    this._typeLoading.set(true);
+    void (async () => {
+      try {
+        const sets = await Promise.all(types.map((type) => this.api.getTypeMemberIds(type)));
+        if (token !== this.typeFilterToken) {
+          return;
+        }
+        const union = new Set<number>();
+        for (const set of sets) {
+          for (const id of set) {
+            union.add(id);
+          }
+        }
+        this._typeMemberIds.set(union);
+        this._error.set(null);
+        await this.loadGensCovering(union, token);
+      } catch {
+        if (token === this.typeFilterToken) {
+          this._error.set('network');
+        }
+      } finally {
+        if (token === this.typeFilterToken) {
+          this._typeLoading.set(false);
+        }
+      }
+    })();
+  }
+
+  /**
+   * Carrega em sequência as gerações ainda não carregadas até a última que
+   * contém algum id de `ids`, mantendo `_loadedGens` contíguo. Aborta se o
+   * filtro mudar no meio (token). O estado de carregamento fica por conta do
+   * `_typeLoading` do chamador ({@link setTypeFilters}) — não usa `_loadingMore`,
+   * que é o lock do botão "carregar mais" (escondido sob filtro de tipo).
+   */
+  private async loadGensCovering(ids: Set<number>, token: number): Promise<void> {
+    let lastGenIdx = -1;
+    for (const id of ids) {
+      const idx = GENERATIONS.findIndex((gen) => id >= gen.start && id <= gen.end);
+      if (idx > lastGenIdx) {
+        lastGenIdx = idx;
+      }
+    }
+
+    while (this._loadedGens() <= lastGenIdx && this._loadedGens() < GENERATIONS.length) {
+      if (token !== this.typeFilterToken) {
+        return;
+      }
+      const gen = GENERATIONS[this._loadedGens()];
+      const page = await this.api.getPage(generationSize(gen), gen.start - 1);
+      if (token !== this.typeFilterToken) {
+        return;
+      }
+      this._entries.update((current) => [...current, ...page.entries]);
+      this._loadedGens.update((n) => n + 1);
     }
   }
 
@@ -212,6 +290,9 @@ export class PokemonStore {
   clearFilters(): void {
     this._filterText.set('');
     this._typeFilters.set([]);
+    this._typeMemberIds.set(null);
+    this._typeLoading.set(false);
+    this.typeFilterToken++;
     this._searchResult.set(null);
     this._error.set(null);
   }
@@ -233,13 +314,9 @@ export class PokemonStore {
     }
   }
 
-  private async hydrateAllTypes(): Promise<void> {
-    const pending = this._entries().filter((entry) => !entry.types);
-    await Promise.allSettled(pending.map((entry) => this.hydrateTypes(entry.id)));
-  }
-
   async select(idOrName: number | string): Promise<void> {
     this._detailLoading.set(true);
+    this._detailError.set(null);
     this._selected.set(undefined);
     this._selectedSpecies.set(undefined);
     try {
@@ -250,8 +327,10 @@ export class PokemonStore {
       } catch {
         this._selectedSpecies.set(undefined);
       }
-    } catch {
-      this._error.set('network');
+    } catch (error) {
+      this._detailError.set(
+        error instanceof HttpErrorResponse && error.status === 404 ? 'not-found' : 'network',
+      );
     } finally {
       this._detailLoading.set(false);
     }
@@ -260,5 +339,7 @@ export class PokemonStore {
   closeDetail(): void {
     this._selected.set(undefined);
     this._selectedSpecies.set(undefined);
+    this._detailError.set(null);
+    this._detailLoading.set(false);
   }
 }

@@ -14,6 +14,7 @@
   <div class="card__art">
     <img
       [src]="currentImage()"
+      [class.card__art-img--animated]="showingAnimated()"
       [alt]="entry().name | titlecase"
       loading="lazy"
       decoding="async"

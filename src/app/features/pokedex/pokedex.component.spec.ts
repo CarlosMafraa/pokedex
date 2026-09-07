@@ -30,4 +30,15 @@ describe('PokedexComponent', () => {
   it('cria o componente', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
+
+  it('retryInitialLoad refaz a carga inicial (não a busca vazia)', () => {
+    const store = TestBed.inject(PokemonStore);
+    (store.loadFirstPage as jasmine.Spy).calls.reset();
+    const search = spyOn(store, 'search');
+
+    fixture.componentInstance.retryInitialLoad();
+
+    expect(store.loadFirstPage).toHaveBeenCalledTimes(1);
+    expect(search).not.toHaveBeenCalled();
+  });
 });

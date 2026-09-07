@@ -1,6 +1,8 @@
 /* Estilos globais. */
+/* A fonte Poppins é auto-hospedada via @fontsource/poppins (pesos latin 400–700),
+   incluída em angular.json > styles. Sem requisição a terceiros: mais rápido,
+   versão travada, sem hotlink do Google Fonts (privacidade). */
 @use 'sass:list';
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
 /* -------------------------------------------------------------------------- */
 /*  Tokens de tema — claro por padrão, sobrescritos em `html.app-dark`.        */
@@ -12,13 +14,25 @@
 
   --app-bg: #f3f4f6;
   --app-text: #1f2937;
-  --app-text-muted: #6b7280;
+  /* #6b7280 dava 4.39:1 sobre --app-bg (falha AA 4.5); #565d6b passa em todas
+     as superfícies claras (inclusive #eef0f3 dos fact tiles). */
+  --app-text-muted: #565d6b;
   --app-surface: #ffffff;
   --app-surface-2: #eef0f3;
   --app-border: #e2e5e9;
 
   --card-tint-strength: 34%;
   --card-tint-base: #ffffff;
+}
+
+/* Overrides de contraste do Aura no tema claro:
+   - botão "text" secundário: {surface.500} #64748b dava 4.32:1
+   - aba ativa: {primary.color} #10b981 (emerald) dava 2.53:1 sobre branco
+   - placeholder do input: {surface.500} #64748b, margem apertada */
+:root:not(.app-dark) {
+  --p-button-text-secondary-color: #475569;
+  --p-tabs-tab-active-color: #047857;
+  --p-form-field-placeholder-color: #565d6b;
 }
 
 html.app-dark {
@@ -31,6 +45,15 @@ html.app-dark {
 
   --card-tint-strength: 40%;
   --card-tint-base: #1e1e24;
+}
+
+/* Overrides de tokens do Aura no tema escuro. Selector `:root.app-dark`
+   (especificidade 0,2,0) para vencer o `.app-dark` (0,1,0) que o PrimeNG injeta
+   em runtime. Aura escuro dava: placeholder do input 3.55:1, rótulo do botão
+   "text" secundário 3.34:1. */
+:root.app-dark {
+  --p-form-field-placeholder-color: #cbd5e1;
+  --p-button-text-secondary-color: #cbd5e1;
 }
 
 body {

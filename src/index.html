@@ -4,36 +4,30 @@
     <meta charset="utf-8" />
     <title>Pokédex</title>
     <base href="/" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://pokeapi.co; base-uri 'self'; object-src 'none'; form-action 'none'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
       content="Pokédex feita com Angular e a PokéAPI: pesquise e explore informações detalhadas dos Pokémon."
     />
-    <meta name="theme-color" content="#e3350d" />
+    <meta name="theme-color" content="#e3350d" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e0e11" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Pokédex" />
     <meta
       property="og:description"
       content="Pokédex feita com Angular e a PokéAPI: pesquise e explore informações detalhadas dos Pokémon."
     />
-    <meta property="og:image" content="assets/image/pokedex.png" />
+    <meta
+      property="og:image"
+      content="https://carlosmafraa.github.io/pokedex/assets/image/pokedex.png"
+    />
+    <meta property="og:url" content="https://carlosmafraa.github.io/pokedex/" />
     <link rel="icon" type="image/png" href="assets/favicon/pokebola.png" />
-    <script>
-      // Contraparte do public/404.html: reconstrói a rota após o redirect do GitHub Pages.
-      (function () {
-        var l = window.location;
-        if (l.search[1] === '/') {
-          var decoded = l.search
-            .slice(1)
-            .split('&')
-            .map(function (s) {
-              return s.replace(/~and~/g, '&');
-            })
-            .join('?');
-          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
-        }
-      })();
-    </script>
+    <script src="spa-redirect.js"></script>
   </head>
   <body>
     <app-root></app-root>

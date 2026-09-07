@@ -1,10 +1,18 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  OnDestroy,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { DecimalPipe, TitleCasePipe } from '@angular/common';
 import { Dialog } from 'primeng/dialog';
-import { ProgressBar } from 'primeng/progressbar';
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from 'primeng/tabs';
 import { PokemonStore } from '@core/services/pokemon-store';
 import { PokemonService } from '@core/services/pokemon.service';
@@ -31,7 +39,6 @@ const GENERATION_LABELS: Record<string, string> = {
     DecimalPipe,
     TitleCasePipe,
     Dialog,
-    ProgressBar,
     Tabs,
     TabList,
     Tab,
@@ -41,19 +48,25 @@ const GENERATION_LABELS: Record<string, string> = {
   ],
   templateUrl: './pokemon-detail.component.html',
   styleUrl: './pokemon-detail.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PokemonDetailComponent {
+export class PokemonDetailComponent implements OnDestroy {
   private readonly store = inject(PokemonStore);
   private readonly api = inject(PokemonService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
+  private readonly dialogRef = viewChild(Dialog);
+  private closing = false;
+
   readonly statColors = STAT_COLORS;
+  readonly maxStat = MAX_BASE_STAT;
   readonly visible = signal(true);
 
   readonly pokemon = this.store.selected;
   readonly species = this.store.selectedSpecies;
   readonly loading = this.store.detailLoading;
+  readonly detailError = this.store.detailError;
 
   private readonly routeName = toSignal(
     this.route.paramMap.pipe(map((params) => params.get('name'))),
@@ -87,6 +100,15 @@ export class PokemonDetailComponent {
     return gen ? (GENERATION_LABELS[gen] ?? gen) : '';
   });
 
+  /** Nome acessível do diálogo (o cabeçalho do PrimeNG está desativado). */
+  readonly dialogTitle = computed(() => {
+    const p = this.pokemon();
+    if (p) {
+      return `${p.name.charAt(0).toUpperCase()}${p.name.slice(1)} — detalhes`;
+    }
+    return this.detailError() ? 'Detalhe indisponível' : 'Carregando Pokémon';
+  });
+
   constructor() {
     effect(() => {
       const name = this.routeName();
@@ -94,6 +116,26 @@ export class PokemonDetailComponent {
         void this.store.select(name);
       }
     });
+
+    // O cabeçalho do PrimeNG está desativado; damos um nome acessível ao
+    // role="dialog" à mão e o mantemos em dia com o estado (carregando/erro/nome).
+    effect(() => this.syncDialogAria());
+  }
+
+  ngOnDestroy(): void {
+    this.store.closeDetail();
+  }
+
+  syncDialogAria(): void {
+    this.dialogRef()?.container?.setAttribute('aria-label', this.dialogTitle());
+  }
+
+  /** Nova tentativa após falha de rede no carregamento do detalhe. */
+  retry(): void {
+    const name = this.routeName();
+    if (name) {
+      void this.store.select(name);
+    }
   }
 
   statLabel(name: string): string {
@@ -112,7 +154,13 @@ export class PokemonDetailComponent {
     return (weight ?? 0) / 10;
   }
 
+  /** Fechar tem três gatilhos (botão, ESC, clique na máscara → `visibleChange`);
+   *  a guarda evita navegar duas vezes quando dois deles disparam juntos. */
   close(): void {
+    if (this.closing) {
+      return;
+    }
+    this.closing = true;
     this.visible.set(false);
     this.store.closeDetail();
     void this.router.navigate(['..'], { relativeTo: this.route });

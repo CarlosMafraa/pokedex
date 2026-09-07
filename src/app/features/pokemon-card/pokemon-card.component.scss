@@ -8,6 +8,9 @@
   border-radius: 14px;
   text-decoration: none;
   color: var(--app-text);
+  /* Fallback sólido para engines sem color-mix() (Safari < 16.2): a linha
+     `background` seguinte é ignorada por inteiro nesses browsers. */
+  background-color: var(--card-tint-base);
   background:
     radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.14), transparent 60%),
     color-mix(in srgb, var(--tint) var(--card-tint-strength), var(--card-tint-base));
@@ -15,6 +18,10 @@
   transition:
     transform 0.18s ease,
     box-shadow 0.18s ease;
+  /* Virtualização leve: o browser pula render/layout dos cards fora da tela.
+     `auto 168px` reserva a altura estimada até o card ser medido uma vez. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 168px;
 }
 
 .card--neutral {
@@ -38,7 +45,9 @@
   align-self: flex-end;
   font-size: 0.75rem;
   font-weight: 700;
-  opacity: 0.65;
+  /* `opacity: 0.65` derrubava o contraste do número no tema escuro (3.55:1).
+     Cor cheia do texto sobre o fundo tingido passa nos dois temas. */
+  color: var(--app-text);
 }
 
 .card__art {
@@ -53,6 +62,17 @@
   max-height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
+}
+
+/* Sprites animados da Gen V têm dimensões nativas muito diferentes entre si.
+   Fixamos a altura para todos ocuparem o mesmo espaço da arte estática; a
+   pixel-art é ampliada de forma nítida em vez de borrada. */
+.card__art img.card__art-img--animated {
+  width: 100%;
+  height: 80px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35));
 }
 
 .card__name {

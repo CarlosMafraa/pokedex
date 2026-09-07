@@ -5,6 +5,7 @@
   [draggable]="false"
   [dismissableMask]="true"
   [showHeader]="false"
+  (onShow)="syncDialogAria()"
   [style]="{ width: 'min(92vw, 460px)', overflow: 'hidden' }"
   contentStyleClass="pokemon-detail__content"
 >
@@ -25,7 +26,19 @@
             <span class="detail__type-badge" [class]="'type-' + badge.name">{{ badge.label }}</span>
           }
         </div>
-        <img class="detail__art" [src]="artwork()" [alt]="p.name" loading="eager" />
+        <img
+          class="detail__art"
+          [src]="artwork()"
+          [alt]="p.name | titlecase"
+          width="190"
+          height="190"
+          loading="eager"
+        />
+      } @else if (detailError() === 'network') {
+        <div class="detail__loading detail__loading--error">
+          <p>Não foi possível carregar este Pokémon.</p>
+          <button type="button" class="detail__retry" (click)="retry()">Tentar de novo</button>
+        </div>
       } @else {
         <p class="detail__loading">Pokémon não encontrado.</p>
       }
@@ -79,12 +92,20 @@
                   <span class="detail__stat-name">{{ statLabel(stat.stat.name) }}</span>
                   <span class="detail__stat-value">{{ stat.base_stat }}</span>
                 </div>
-                <p-progressbar
-                  [value]="statPercent(stat.base_stat)"
-                  [showValue]="false"
-                  [style]="{ height: '6px' }"
-                  [color]="statColors[i % statColors.length]"
-                />
+                <div
+                  class="detail__bar"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  [attr.aria-valuemax]="maxStat"
+                  [attr.aria-valuenow]="stat.base_stat"
+                  [attr.aria-label]="statLabel(stat.stat.name)"
+                >
+                  <div
+                    class="detail__bar-fill"
+                    [style.width.%]="statPercent(stat.base_stat)"
+                    [style.background]="statColors[i % statColors.length]"
+                  ></div>
+                </div>
               } @empty {
                 <p>Sem status.</p>
               }

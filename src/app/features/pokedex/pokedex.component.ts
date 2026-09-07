@@ -1,4 +1,4 @@
-import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -30,6 +30,7 @@ import { POKEMON_TYPES, POKEMON_TYPE_LABELS } from '@core/models/constants/pokem
   ],
   templateUrl: './pokedex.component.html',
   styleUrl: './pokedex.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PokedexComponent implements OnInit {
   readonly store = inject(PokemonStore);
@@ -78,6 +79,11 @@ export class PokedexComponent implements OnInit {
   /** Enter no campo: dispara a busca exata na hora (com feedback de erro). */
   submitSearch(): void {
     void this.store.search(this.query());
+  }
+
+  /** Botão "Tentar de novo" da falha de carga inicial. */
+  retryInitialLoad(): void {
+    void this.store.loadFirstPage();
   }
 
   onQueryInput(value: string): void {

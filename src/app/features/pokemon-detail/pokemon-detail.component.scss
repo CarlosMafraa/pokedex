@@ -33,10 +33,13 @@
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.detail__close:hover,
+.detail__close:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
 .detail__close:focus-visible {
   background: rgba(255, 255, 255, 0.35);
-  outline: none;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .detail__number {
@@ -81,6 +84,30 @@
   align-items: center;
   justify-content: center;
   color: #fff;
+}
+.detail__loading--error {
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.detail__retry {
+  padding: 0.4rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.detail__retry:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+.detail__retry:focus-visible {
+  background: rgba(255, 255, 255, 0.32);
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .detail__body {
@@ -132,8 +159,12 @@
 .detail__abilities li {
   padding: 0.2rem 0.7rem;
   border-radius: 999px;
-  background: var(--band);
-  color: var(--type-on-color, #fff);
+  /* Antes: branco sobre a cor do tipo (grass #5a9b34 = 3.4:1, falha AA para
+     texto pequeno). Fundo levemente tingido + texto do app garante contraste
+     nos dois temas. `background-color` é o fallback p/ engines sem color-mix(). */
+  background-color: var(--app-surface-2);
+  background: color-mix(in srgb, var(--band) 20%, var(--app-surface-2));
+  color: var(--app-text);
   font-size: 0.8rem;
 }
 
@@ -146,6 +177,18 @@
 }
 .detail__stat-value {
   color: var(--app-text-muted);
+}
+
+.detail__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--app-surface-2);
+  overflow: hidden;
+}
+.detail__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.25s ease;
 }
 
 :host ::ng-deep .p-tablist-tab-list {

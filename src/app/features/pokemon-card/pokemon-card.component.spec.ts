@@ -33,9 +33,17 @@ describe('PokemonCardComponent', () => {
 
   it('mostra a arte oficial por padrão e o sprite animado no hover', () => {
     const component = fixture.componentInstance;
+    const img = () => fixture.nativeElement.querySelector('.card__art img') as HTMLImageElement;
+
     expect(component.currentImage()).toBe(entry.artworkUrl);
+    expect(img().classList.contains('card__art-img--animated')).toBe(false);
+
     component.hovered.set(true);
+    fixture.detectChanges();
+
     expect(component.currentImage()).toBe(entry.animatedSpriteUrl);
+    // o sprite animado recebe a classe que normaliza seu tamanho
+    expect(img().classList.contains('card__art-img--animated')).toBe(true);
   });
 
   it('cai para o sprite animado se a arte falhar', () => {

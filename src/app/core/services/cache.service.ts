@@ -11,12 +11,20 @@ const DB_NAME = 'pokedex_cache_db';
 const STORE_NAME = 'cache_store';
 const DB_VERSION = 1;
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 horas
-const MAX_CACHE_ITEMS = 300;
+/**
+ * Teto de itens antes da poda LRU. A Pokédex completa gera ~2.100 chaves
+ * (1025 detalhes + listas + tipos + species), pequenas (~2–15 KB), bem abaixo
+ * da cota do IndexedDB. Um teto baixo (era 300) causava evição e re-fetch
+ * constantes entre visitas.
+ */
+const MAX_CACHE_ITEMS = 2000;
 
 /**
  * Cache persistente sobre IndexedDB com expiração por item e política LRU.
  * A abertura do banco é memoizada para evitar corrida entre chamadas
  * concorrentes, e cada transação de escrita é aguardada até `oncomplete`.
+ * Itens vencidos não são apagados na leitura: ficam disponíveis para o
+ * fallback "stale-if-error" ({@link peekStale}) até a poda LRU removê-los.
  */
 @Injectable({
   providedIn: 'root',
@@ -95,19 +103,33 @@ export class CacheService {
     }
   }
 
-  /** Lê um item sem efeitos colaterais (não atualiza `lastAccessed`). */
+  /**
+   * Lê um item ainda válido, sem efeitos colaterais (não atualiza `lastAccessed`
+   * nem apaga item vencido — a poda LRU cuida disso). Retorna `null` se ausente
+   * ou expirado.
+   */
   public async peek<T>(key: string): Promise<T | null> {
+    const entry = await this.peekEntry<T>(key);
+    if (!entry) {
+      return null;
+    }
+    return Date.now() - entry.timestamp > CACHE_EXPIRY ? null : entry.data;
+  }
+
+  /**
+   * Lê um item ignorando o TTL — fallback "stale-if-error": quando a rede falha,
+   * é melhor mostrar o último dado conhecido do que um erro.
+   */
+  public async peekStale<T>(key: string): Promise<T | null> {
+    const entry = await this.peekEntry<T>(key);
+    return entry ? entry.data : null;
+  }
+
+  private async peekEntry<T>(key: string): Promise<CacheData<T> | null> {
     try {
       const store = await this.tx('readonly');
       const cacheData = await CacheService.request<CacheData<T> | undefined>(store.get(key));
-      if (!cacheData) {
-        return null;
-      }
-      if (Date.now() - cacheData.timestamp > CACHE_EXPIRY) {
-        await this.remove(key);
-        return null;
-      }
-      return cacheData.data;
+      return cacheData ?? null;
     } catch (error) {
       console.error('Erro ao ler o cache:', error);
       return null;
