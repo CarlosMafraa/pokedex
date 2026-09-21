@@ -27,18 +27,18 @@
     "@angular/router": "^20.3.30",
     "@fontsource/poppins": "^5.3.0",
     "@primeng/themes": "^20.4.0",
-    "primeicons": "^8.0.0",
+    "primeicons": "^8.0.1",
     "primeng": "^20.4.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
-    "zone.js": "~0.15.0"
+    "zone.js": "~0.16.3"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^20.3.36",
     "@angular/cli": "^20.3.36",
     "@angular/compiler-cli": "^20.3.30",
     "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "@types/jasmine": "~5.1.0",
     "angular-eslint": "^20.7.0",
     "axe-core": "^4.13.0",
@@ -49,9 +49,9 @@
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
-    "karma-jasmine-html-reporter": "~2.1.0",
-    "prettier": "^3.9.6",
+    "karma-jasmine-html-reporter": "~2.3.0",
+    "prettier": "^3.9.8",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.33.1"
+    "typescript-eslint": "^8.70.0"
   }
 }
