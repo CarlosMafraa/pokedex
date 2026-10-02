@@ -108,6 +108,27 @@ test('abre o detalhe via card e via deep-link', async ({ page }) => {
   await expect(page.locator('app-pokemon-detail')).toContainText('122.0 kg');
 });
 
+test('hover sem GIF animado (Gen VI+) mantém a arte oficial em vez de imagem quebrada', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await waitForGrid(page);
+
+  // #650 (Chespin) não tem GIF da Gen V no repositório de sprites (404)
+  await searchBox(page).fill('650');
+  await expect(page.locator('app-pokemon-card')).toHaveCount(1);
+  const img = page.locator('app-pokemon-card img');
+  await expect
+    .poll(() => img.evaluate((i) => (i as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+
+  await page.locator('app-pokemon-card .card').hover();
+  await expect(img).toHaveAttribute('src', /official-artwork\/650\.png$/);
+  await expect
+    .poll(() => img.evaluate((i) => (i as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+});
+
 test('carregar mais traz a próxima geração, com seu cabeçalho', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);

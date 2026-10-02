@@ -15,10 +15,11 @@
     <img
       [src]="currentImage()"
       [class.card__art-img--animated]="showingAnimated()"
+      [class.card__art-img--placeholder]="showingPlaceholder()"
       [alt]="entry().name | titlecase"
       loading="lazy"
       decoding="async"
-      (error)="onArtworkError()"
+      (error)="onImageError(currentImage())"
     />
   </div>
   <span class="card__name">{{ entry().name | titlecase }}</span>

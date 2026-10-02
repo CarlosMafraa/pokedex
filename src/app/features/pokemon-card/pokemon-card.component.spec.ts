@@ -48,7 +48,28 @@ describe('PokemonCardComponent', () => {
 
   it('cai para o sprite animado se a arte falhar', () => {
     const component = fixture.componentInstance;
-    component.onArtworkError();
+    component.onImageError(entry.artworkUrl);
     expect(component.currentImage()).toBe(entry.animatedSpriteUrl);
+  });
+
+  it('volta para a arte oficial no hover se o GIF não existir', () => {
+    const component = fixture.componentInstance;
+    component.hovered.set(true);
+    expect(component.currentImage()).toBe(entry.animatedSpriteUrl);
+
+    component.onImageError(entry.animatedSpriteUrl);
+    expect(component.currentImage()).toBe(entry.artworkUrl);
+    expect(component.showingAnimated()).toBe(false);
+  });
+
+  it('mostra a pokébola quando nem a arte nem o GIF carregam', () => {
+    const component = fixture.componentInstance;
+    component.onImageError(entry.artworkUrl);
+    component.onImageError(entry.animatedSpriteUrl);
+    fixture.detectChanges();
+
+    expect(component.showingPlaceholder()).toBe(true);
+    const img = fixture.nativeElement.querySelector('.card__art img') as HTMLImageElement;
+    expect(img.classList.contains('card__art-img--placeholder')).toBe(true);
   });
 });

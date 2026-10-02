@@ -75,3 +75,11 @@
   font-weight: 600;
   font-size: 0.9rem;
 }
+
+/* Nenhuma arte disponível: pokébola discreta no lugar do ícone de imagem quebrada. */
+.card__art img.card__art-img--placeholder {
+  width: 56px;
+  height: 56px;
+  opacity: 0.35;
+  filter: grayscale(1);
+}
