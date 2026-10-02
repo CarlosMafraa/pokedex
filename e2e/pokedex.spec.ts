@@ -254,3 +254,29 @@ test('carregamento só na tela da Pokédex: pokébola e depois a grade', async (
   await expect(page.locator('app-screen-intro')).toHaveCount(0, { timeout: 8000 });
   await expect(page.locator('app-pokemon-card')).toHaveCount(151);
 });
+
+test('fechar o detalhe mantém a rolagem (não volta ao topo da lista)', async ({ page }) => {
+  await page.goto('/');
+  await waitForGrid(page);
+
+  // espera a tela terminar de esticar (animação de altura no fim do carregamento)
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.querySelector('.pokedex__results')!.getAnimations().length),
+    )
+    .toBe(0);
+
+  // último Pokémon da Geração I, lá embaixo da grade
+  const mew = page.locator('app-pokemon-card .card', { hasText: 'Mew' }).last();
+  await mew.scrollIntoViewIfNeeded();
+  const before = await page.evaluate(() => window.scrollY);
+  expect(before).toBeGreaterThan(1000);
+
+  await mew.click();
+  await expect(page.locator('app-pokemon-detail .detail__name')).toHaveText('Mew');
+  await page.getByRole('button', { name: 'Fechar' }).click();
+  await expect(page).toHaveURL(/\/$|\/\?/);
+
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before - 50);
+  await expect(mew).toBeInViewport();
+});

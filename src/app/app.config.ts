@@ -14,7 +14,9 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     provideRouter(
       routes,
-      withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+      // O detalhe é um diálogo por cima da grade, não uma página: abrir/fechar não
+      // pode mexer na rolagem (antes voltava ao topo e perdia o lugar na lista).
+      withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'disabled' }),
     ),
     providePrimeNG({
       theme: {
