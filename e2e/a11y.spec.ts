@@ -28,15 +28,24 @@ test('grade não tem violações de acessibilidade (claro e escuro)', async ({ p
   expect((await scan(page)).violations).toEqual([]);
 });
 
-test('diálogo de detalhe não tem violações (aba Sobre e Status)', async ({ page }) => {
+test('diálogo de detalhe não tem violações (desktop e painel do celular)', async ({ page }) => {
+  // desktop: cartão em duas colunas, tudo visível (sobre + hexágono)
   await page.goto('/pokemon/bulbasaur');
   await expect(page.locator('app-pokemon-detail .detail__name')).toBeVisible();
+  await expect(page.locator('app-stat-hexagon .hex__chart')).toBeVisible();
+  // a tabela acessível espelha os 6 stats + total
+  await expect(page.locator('app-stat-hexagon table tr')).toHaveCount(7);
+  await page.waitForTimeout(500);
+  expect((await scan(page)).violations).toEqual([]);
+
+  // celular: painel de baixo com o seletor Sobre | Status
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('tab', { name: 'Sobre' })).toHaveAttribute('aria-selected', 'true');
   await page.waitForTimeout(500);
   expect((await scan(page)).violations).toEqual([]);
 
   await page.getByRole('tab', { name: 'Status' }).click();
   await expect(page.locator('app-stat-hexagon .hex__chart')).toBeVisible();
-  // a tabela acessível espelha os 6 stats + total
-  await expect(page.locator('app-stat-hexagon table tr')).toHaveCount(7);
+  await page.waitForTimeout(500);
   expect((await scan(page)).violations).toEqual([]);
 });

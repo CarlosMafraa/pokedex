@@ -31,21 +31,23 @@
   </figcaption>
 
   <!-- Versão em tabela para leitores de tela (o SVG é decorativo). -->
-  <table class="hex__table">
-    <caption>
-      Status base
-    </caption>
-    <tbody>
-      @for (v of vertices(); track v.key) {
+  <div class="hex__sr">
+    <table>
+      <caption>
+        Status base
+      </caption>
+      <tbody>
+        @for (v of vertices(); track v.key) {
+          <tr>
+            <th scope="row">{{ v.label }}</th>
+            <td>{{ v.value }}</td>
+          </tr>
+        }
         <tr>
-          <th scope="row">{{ v.label }}</th>
-          <td>{{ v.value }}</td>
+          <th scope="row">Total</th>
+          <td>{{ total() }}</td>
         </tr>
-      }
-      <tr>
-        <th scope="row">Total</th>
-        <td>{{ total() }}</td>
-      </tr>
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </figure>

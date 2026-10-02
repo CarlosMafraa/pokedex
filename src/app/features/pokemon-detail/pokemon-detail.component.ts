@@ -1,8 +1,11 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
+  ElementRef,
   inject,
   OnDestroy,
   signal,
@@ -13,13 +16,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { DecimalPipe, TitleCasePipe } from '@angular/common';
 import { Dialog } from 'primeng/dialog';
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from 'primeng/tabs';
 import { PokemonStore } from '@core/services/pokemon-store';
 import { PokemonService } from '@core/services/pokemon.service';
 import { PokedexNumberPipe } from '@shared/pipes/pokedex-number.pipe';
 import { StatHexagonComponent } from './stat-hexagon/stat-hexagon.component';
 import { PokeballComponent } from '@shared/components/pokeball/pokeball.component';
 import { POKEMON_TYPE_LABELS, PokemonType } from '@core/models/constants/pokemon-types';
+import { ABILITY_LABELS } from '@core/models/constants/pokemon-abilities';
 
 const GENERATION_LABELS: Record<string, string> = {
   'generation-i': 'Geração I',
@@ -33,6 +36,24 @@ const GENERATION_LABELS: Record<string, string> = {
   'generation-ix': 'Geração IX',
 };
 
+type DetailTab = 'sobre' | 'status';
+
+/** A partir desta largura o detalhe vira cartão em duas colunas. */
+const WIDE_QUERY = typeof matchMedia === 'function' ? '(min-width: 760px)' : null;
+/** Tamanhos normais e mínimos ao encaixar o detalhe na tela (ver fitToViewport). */
+const DEFAULT_ART_PX = 150;
+const MIN_ART_PX = 64;
+const DEFAULT_HEX_PX = 290;
+const DEFAULT_HEX_WIDE_PX = 260;
+const MIN_HEX_PX = 150;
+/** Só volta a crescer com pelo menos esta folga (evita oscilar por 1px). */
+const FIT_SLACK_PX = 8;
+/** Altura do hexágono em relação à largura (viewBox 320×290 + linha do total). */
+const HEX_HEIGHT_RATIO = 0.95;
+
+/** Quanto arrastar o painel para baixo (px) para fechar. */
+const SHEET_CLOSE_DRAG_PX = 110;
+
 @Component({
   selector: 'app-pokemon-detail',
   standalone: true,
@@ -40,11 +61,6 @@ const GENERATION_LABELS: Record<string, string> = {
     DecimalPipe,
     TitleCasePipe,
     Dialog,
-    Tabs,
-    TabList,
-    Tab,
-    TabPanels,
-    TabPanel,
     PokedexNumberPipe,
     StatHexagonComponent,
     PokeballComponent,
@@ -63,7 +79,22 @@ export class PokemonDetailComponent implements OnDestroy {
   private closing = false;
 
   readonly visible = signal(true);
-  readonly activeTab = signal<'sobre' | 'status'>('sobre');
+  readonly activeTab = signal<DetailTab>('sobre');
+  readonly tabs: { value: DetailTab; label: string }[] = [
+    { value: 'sobre', label: 'Sobre' },
+    { value: 'status', label: 'Status' },
+  ];
+
+  /**
+   * Desktop: cartão em duas colunas, tudo visível. Celular: painel que sobe de
+   * baixo, com o seletor Sobre | Status (não cabe tudo junto).
+   */
+  readonly wide = signal(WIDE_QUERY ? matchMedia(WIDE_QUERY).matches : true);
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /** Arrastar o puxador do painel para baixo fecha o detalhe. */
+  private drag: { startY: number; sheet: HTMLElement } | null = null;
 
   readonly pokemon = this.store.selected;
   readonly species = this.store.selectedSpecies;
@@ -139,6 +170,45 @@ export class PokemonDetailComponent implements OnDestroy {
   });
 
   constructor() {
+    if (WIDE_QUERY) {
+      const query = matchMedia(WIDE_QUERY);
+      const onChange = (event: MediaQueryListEvent) => this.wide.set(event.matches);
+      query.addEventListener('change', onChange);
+      inject(DestroyRef).onDestroy(() => query.removeEventListener('change', onChange));
+    }
+
+    // Encaixa o detalhe na tela sempre que o tamanho real do conteúdo muda
+    // (texto chegando, fonte carregando, troca de aba) ou a janela muda.
+    let frame = 0;
+    const scheduleFit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => this.fitToViewport());
+    };
+    const observer = new ResizeObserver(scheduleFit);
+    let observed: Element | null = null;
+    afterRenderEffect(() => {
+      this.pokemon();
+      this.activeTab();
+      this.wide();
+      const detail = this.host.nativeElement.querySelector('.detail');
+      if (detail !== observed) {
+        if (observed) {
+          observer.unobserve(observed);
+        }
+        if (detail) {
+          observer.observe(detail);
+        }
+        observed = detail;
+      }
+      scheduleFit();
+    });
+    window.addEventListener('resize', scheduleFit);
+    inject(DestroyRef).onDestroy(() => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', scheduleFit);
+    });
+
     effect(() => {
       const name = this.routeName();
       if (name) {
@@ -193,6 +263,107 @@ export class PokemonDetailComponent implements OnDestroy {
     }
   }
 
+  /**
+   * O detalhe não deve rolar. Mede quanto o conteúdo passa (ou sobra) do espaço
+   * e ajusta, a partir do tamanho atual: primeiro a arte (só no painel do
+   * celular, na aba Sobre, onde ela fica em cima do texto) e depois o hexágono,
+   * respeitando os mínimos. Com folga, os dois voltam a crescer até o normal.
+   * Roda a cada mudança de tamanho do conteúdo, então converge sozinho.
+   */
+  private fitToViewport(): void {
+    const root = this.host.nativeElement;
+    const content = root.querySelector<HTMLElement>('.pokemon-detail__content');
+    const detail = root.querySelector<HTMLElement>('.detail');
+    if (!content || !detail) {
+      return;
+    }
+    // > 0: passou do espaço (rolaria); < 0: sobrou espaço
+    let over = detail.offsetHeight - content.clientHeight;
+    const grow = over < -FIT_SLACK_PX;
+    if (over <= 0 && !grow) {
+      return;
+    }
+
+    if (!this.wide() && this.activeTab() === 'sobre') {
+      over = this.fitVar(detail, '--art-size', DEFAULT_ART_PX, MIN_ART_PX, over, 1);
+    }
+    const hex = root.querySelector<SVGSVGElement>('app-stat-hexagon .hex__chart');
+    if (hex && (over > 0 || grow)) {
+      // <svg> não tem offsetWidth; o retângulo do svg não sofre a animação
+      const max = this.wide() ? DEFAULT_HEX_WIDE_PX : DEFAULT_HEX_PX;
+      this.fitVar(detail, '--hex-width', max, MIN_HEX_PX, over, HEX_HEIGHT_RATIO, hex);
+    }
+  }
+
+  /**
+   * Ajusta uma variável de tamanho (px) em `detail` para absorver `over` px de
+   * altura; `ratio` = altura ganha/perdida por px de tamanho. Devolve o que
+   * ainda sobra (ou falta) depois do ajuste.
+   */
+  private fitVar(
+    detail: HTMLElement,
+    name: string,
+    max: number,
+    min: number,
+    over: number,
+    ratio: number,
+    measured?: Element,
+  ): number {
+    const set = parseFloat(detail.style.getPropertyValue(name));
+    const current = set || Math.min(max, measured?.getBoundingClientRect().width ?? max);
+    const next = Math.max(min, Math.min(max, Math.floor(current - over / ratio)));
+    if (next >= max) {
+      detail.style.removeProperty(name);
+    } else if (next !== set) {
+      detail.style.setProperty(name, `${next}px`);
+    }
+    return over - (current - next) * ratio;
+  }
+
+  /** Setas trocam entre Sobre e Status (padrão WAI-ARIA de tabs). */
+  onSegmentKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return;
+    }
+    event.preventDefault();
+    const next: DetailTab = this.activeTab() === 'sobre' ? 'status' : 'sobre';
+    this.activeTab.set(next);
+    document.getElementById(`detail-tab-${next}`)?.focus();
+  }
+
+  onHandleDown(event: PointerEvent): void {
+    const handle = event.currentTarget as HTMLElement;
+    const sheet = handle.closest<HTMLElement>('.p-dialog');
+    if (!sheet) {
+      return;
+    }
+    handle.setPointerCapture(event.pointerId);
+    sheet.style.transition = 'none';
+    this.drag = { startY: event.clientY, sheet };
+  }
+
+  onHandleMove(event: PointerEvent): void {
+    if (this.drag) {
+      const dy = Math.max(0, event.clientY - this.drag.startY);
+      this.drag.sheet.style.transform = `translateY(${dy}px)`;
+    }
+  }
+
+  onHandleUp(event: PointerEvent): void {
+    if (!this.drag) {
+      return;
+    }
+    const { startY, sheet } = this.drag;
+    this.drag = null;
+    if (event.clientY - startY > SHEET_CLOSE_DRAG_PX) {
+      this.close();
+      return;
+    }
+    // não arrastou o bastante: volta ao lugar
+    sheet.style.transition = 'transform 0.2s ease';
+    sheet.style.transform = '';
+  }
+
   toggleAnimated(): void {
     this.showAnimated.update((on) => !on);
   }
@@ -203,6 +374,11 @@ export class PokemonDetailComponent implements OnDestroy {
       this.showAnimated.set(false);
       this.hasAnimated.set(false);
     }
+  }
+
+  /** Nome da habilidade em pt-BR; desconhecida cai para o slug formatado ("solar-power" → "Solar Power"). */
+  abilityLabel(slug: string): string {
+    return ABILITY_LABELS[slug] ?? slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   heightInMeters(height: number | undefined): number {

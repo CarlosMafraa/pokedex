@@ -147,10 +147,22 @@ test('status em hexágono com total e GIF no detalhe (funciona sem mouse)', asyn
   await page.getByRole('button', { name: 'Ver arte' }).click();
   await expect(art).toHaveAttribute('src', /official-artwork\/6\.png$/);
 
-  // 78 + 84 + 78 + 109 + 85 + 100
-  await page.getByRole('tab', { name: 'Status' }).click();
+  // habilidades em pt-BR (a PokéAPI só tem em inglês)
+  await expect(page.locator('.detail__abilities li')).toHaveText(['Chama', 'Energia Solar']);
+
+  // 78 + 84 + 78 + 109 + 85 + 100 (no desktop o hexágono já aparece junto)
   await expect(page.locator('app-stat-hexagon .hex__total')).toContainText('534');
   await expect(page.locator('app-stat-hexagon .hex__value')).toHaveCount(6);
+
+  // celular: painel de baixo; setas trocam entre Sobre e Status
+  await page.setViewportSize({ width: 390, height: 844 });
+  const sobre = page.getByRole('tab', { name: 'Sobre' });
+  await sobre.focus();
+  await sobre.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Status' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('app-stat-hexagon .hex__total')).toContainText('534');
+  await expect(page.locator('.detail__flavor')).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   // #650 não tem GIF: o botão não é oferecido
   await page.goto('/pokemon/chespin');
@@ -279,4 +291,32 @@ test('fechar o detalhe mantém a rolagem (não volta ao topo da lista)', async (
 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before - 50);
   await expect(mew).toBeInViewport();
+});
+
+test('detalhe nunca rola: encaixa até as descrições mais longas em telas baixas', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const overflow = () =>
+    page.evaluate(() => {
+      const c = document.querySelector('.pokemon-detail__content') as HTMLElement;
+      return c.scrollHeight - c.clientHeight;
+    });
+  // notebook baixo, 800×600 e celular pequeno; #342 e #303 têm as maiores descrições
+  for (const [w, h] of [
+    [1366, 657],
+    [800, 600],
+    [360, 640],
+  ]) {
+    await page.setViewportSize({ width: w, height: h });
+    for (const id of ['342', '303']) {
+      await page.goto('/pokemon/' + id);
+      await expect(page.locator('.detail__flavor')).toBeVisible();
+      await expect.poll(overflow, { message: `${w}x${h} #${id}` }).toBeLessThanOrEqual(0);
+      if (w < 760) {
+        await page.getByRole('tab', { name: 'Status' }).click();
+        await expect.poll(overflow, { message: `${w}x${h} #${id} status` }).toBeLessThanOrEqual(0);
+      }
+    }
+  }
 });

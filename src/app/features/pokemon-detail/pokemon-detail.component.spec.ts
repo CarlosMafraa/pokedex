@@ -49,6 +49,13 @@ describe('PokemonDetailComponent', () => {
     expect(c.hasAnimated()).toBe(false);
   });
 
+  it('traduz as habilidades e formata as desconhecidas', () => {
+    const c = fixture.componentInstance;
+    expect(c.abilityLabel('blaze')).toBe('Chama');
+    expect(c.abilityLabel('solar-power')).toBe('Energia Solar');
+    expect(c.abilityLabel('habilidade-nova')).toBe('Habilidade Nova');
+  });
+
   it('converte altura e peso de dm/hg para m/kg', () => {
     expect(fixture.componentInstance.heightInMeters(7)).toBe(0.7);
     expect(fixture.componentInstance.weightInKg(69)).toBe(6.9);

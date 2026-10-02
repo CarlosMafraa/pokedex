@@ -5,30 +5,41 @@
   [draggable]="false"
   [dismissableMask]="true"
   [showHeader]="false"
+  [position]="wide() ? 'center' : 'bottom'"
   (onShow)="syncDialogAria()"
-  [style]="{ width: 'min(92vw, 460px)', maxHeight: '96dvh', overflow: 'hidden' }"
+  [styleClass]="wide() ? 'detail-dialog' : 'detail-dialog detail-dialog--sheet'"
+  [style]="wide() ? { width: 'min(94vw, 780px)' } : { width: '100vw', maxWidth: '100vw' }"
   contentStyleClass="pokemon-detail__content"
 >
-  <div class="detail" [class]="'type-' + primaryType()">
-    <div class="detail__band">
-      <button type="button" class="detail__close" aria-label="Fechar" (click)="close()">
-        &times;
-      </button>
+  <div
+    class="detail"
+    [class]="'type-' + primaryType()"
+    [class.detail--wide]="wide()"
+    [class.detail--compact]="!wide() && activeTab() === 'status'"
+  >
+    <button type="button" class="detail__close" aria-label="Fechar" (click)="close()">
+      <i class="pi pi-times" aria-hidden="true"></i>
+    </button>
 
-      @if (loading() && !pokemon()) {
-        <div class="detail__loading" role="status">
-          <app-pokeball [size]="64" />
-          <span>Carregando…</span>
-        </div>
-      } @else if (pokemon()) {
-        @let p = pokemon()!;
-        <span class="detail__number">{{ p.id | pokedexNumber }}</span>
-        <h2 class="detail__name">{{ p.name | titlecase }}</h2>
-        <div class="detail__types">
-          @for (badge of typeBadges(); track badge.name) {
-            <span class="detail__type-badge" [class]="'type-' + badge.name">{{ badge.label }}</span>
-          }
-        </div>
+    @if (!wide()) {
+      <!-- Puxador do painel: arrastar para baixo fecha (× e Esc também fecham). -->
+      <div
+        class="detail__handle"
+        aria-hidden="true"
+        (pointerdown)="onHandleDown($event)"
+        (pointermove)="onHandleMove($event)"
+        (pointerup)="onHandleUp($event)"
+        (pointercancel)="onHandleUp($event)"
+      ></div>
+    }
+
+    @if (loading() && !pokemon()) {
+      <div class="detail__state" role="status">
+        <app-pokeball [size]="64" />
+        <span>Carregando…</span>
+      </div>
+    } @else if (pokemon(); as p) {
+      <section class="detail__hero">
         <div class="detail__art-wrap">
           @if (!artReady()) {
             <app-pokeball class="detail__art-ball" [size]="52" />
@@ -39,94 +50,125 @@
             [class.detail__art--animated]="showAnimated()"
             [src]="showAnimated() ? animatedUrl() : artwork()"
             [alt]="p.name | titlecase"
-            width="160"
-            height="160"
+            width="220"
+            height="220"
             loading="eager"
             (load)="artReady.set(true)"
             (error)="onAnimatedError()"
           />
-          @if (hasAnimated()) {
-            <button
-              type="button"
-              class="detail__animate"
-              [attr.aria-pressed]="showAnimated()"
-              (click)="toggleAnimated()"
-            >
-              <i
-                class="pi"
-                [class.pi-play]="!showAnimated()"
-                [class.pi-image]="showAnimated()"
-                aria-hidden="true"
-              ></i>
-              {{ showAnimated() ? 'Ver arte' : 'Animar' }}
-            </button>
-          }
         </div>
-      } @else if (detailError() === 'network') {
-        <div class="detail__loading detail__loading--error">
-          <p>Não foi possível carregar este Pokémon.</p>
-          <button type="button" class="detail__retry" (click)="retry()">Tentar de novo</button>
-        </div>
-      } @else {
-        <p class="detail__loading">Pokémon não encontrado.</p>
-      }
-    </div>
+        @if (hasAnimated() && (wide() || activeTab() === 'sobre')) {
+          <button
+            type="button"
+            class="detail__animate"
+            [attr.aria-pressed]="showAnimated()"
+            (click)="toggleAnimated()"
+          >
+            <i
+              class="pi"
+              [class.pi-play]="!showAnimated()"
+              [class.pi-image]="showAnimated()"
+              aria-hidden="true"
+            ></i>
+            {{ showAnimated() ? 'Ver arte' : 'Animar' }}
+          </button>
+        }
+      </section>
 
-    @if (pokemon(); as p) {
-      <div class="detail__body">
-        <p-tabs [value]="activeTab()" (valueChange)="activeTab.set($any($event))">
-          <p-tablist>
-            <p-tab value="sobre">Sobre</p-tab>
-            <p-tab value="status">Status</p-tab>
-          </p-tablist>
-          <p-tabpanels>
-            <p-tabpanel value="sobre">
-              @if (flavorText()) {
-                <p class="detail__flavor">{{ flavorText() }}</p>
-              }
-              <dl class="detail__facts">
-                <div>
-                  <dt>Altura</dt>
-                  <dd>{{ heightInMeters(p.height) | number: '1.1-1' }} m</dd>
-                </div>
-                <div>
-                  <dt>Peso</dt>
-                  <dd>{{ weightInKg(p.weight) | number: '1.1-1' }} kg</dd>
-                </div>
-                <div>
-                  <dt>Exp. base</dt>
-                  <dd>{{ p.base_experience || '—' }}</dd>
-                </div>
-                @if (generationLabel()) {
-                  <div>
-                    <dt>Geração</dt>
-                    <dd>{{ generationLabel() }}</dd>
-                  </div>
-                }
-              </dl>
-              <h3 class="detail__subtitle">Habilidades</h3>
-              <ul class="detail__abilities">
-                @for (ability of p.abilities; track ability.ability.name) {
-                  <li>{{ ability.ability.name | titlecase }}</li>
-                } @empty {
-                  <li>—</li>
-                }
-              </ul>
-            </p-tabpanel>
+      <section class="detail__info">
+        <header class="detail__head">
+          <span class="detail__number">{{ p.id | pokedexNumber }}</span>
+          <h2 class="detail__name">{{ p.name | titlecase }}</h2>
+          <div class="detail__types">
+            @for (badge of typeBadges(); track badge.name) {
+              <span class="detail__type" [class]="'type-' + badge.name">{{ badge.label }}</span>
+            }
+          </div>
+        </header>
 
-            <p-tabpanel value="status">
-              <!-- Só monta ao abrir a aba: assim a animação do hexágono é vista. -->
-              @if (activeTab() === 'status') {
-                @if (p.stats.length) {
-                  <app-stat-hexagon [stats]="p.stats" />
-                } @else {
-                  <p>Sem status.</p>
-                }
+        @if (!wide()) {
+          <div class="detail__segments" role="tablist" aria-label="Seções do detalhe">
+            @for (tab of tabs; track tab.value) {
+              <button
+                type="button"
+                role="tab"
+                class="detail__segment"
+                [id]="'detail-tab-' + tab.value"
+                [attr.aria-selected]="activeTab() === tab.value"
+                [attr.aria-controls]="'detail-panel-' + tab.value"
+                [attr.tabindex]="activeTab() === tab.value ? 0 : -1"
+                (click)="activeTab.set(tab.value)"
+                (keydown)="onSegmentKeydown($event)"
+              >
+                {{ tab.label }}
+              </button>
+            }
+          </div>
+        }
+
+        @if (wide() || activeTab() === 'sobre') {
+          <div
+            class="detail__about"
+            id="detail-panel-sobre"
+            [attr.role]="wide() ? null : 'tabpanel'"
+            [attr.aria-labelledby]="wide() ? null : 'detail-tab-sobre'"
+          >
+            @if (flavorText()) {
+              <p class="detail__flavor">{{ flavorText() }}</p>
+            }
+            <dl class="detail__facts">
+              <div>
+                <dt>Altura</dt>
+                <dd>{{ heightInMeters(p.height) | number: '1.1-1' }} m</dd>
+              </div>
+              <div>
+                <dt>Peso</dt>
+                <dd>{{ weightInKg(p.weight) | number: '1.1-1' }} kg</dd>
+              </div>
+              <div>
+                <dt>Exp. base</dt>
+                <dd>{{ p.base_experience || '—' }}</dd>
+              </div>
+              @if (generationLabel()) {
+                <div>
+                  <dt>Geração</dt>
+                  <dd>{{ generationLabel() }}</dd>
+                </div>
               }
-            </p-tabpanel>
-          </p-tabpanels>
-        </p-tabs>
+            </dl>
+            <span class="detail__label" id="detail-abilities-label">Habilidades</span>
+            <ul class="detail__abilities" aria-labelledby="detail-abilities-label">
+              @for (ability of p.abilities; track ability.ability.name) {
+                <li>{{ abilityLabel(ability.ability.name) }}</li>
+              } @empty {
+                <li>—</li>
+              }
+            </ul>
+          </div>
+        }
+
+        @if (wide() || activeTab() === 'status') {
+          <div
+            class="detail__stats"
+            id="detail-panel-status"
+            [attr.role]="wide() ? null : 'tabpanel'"
+            [attr.aria-labelledby]="wide() ? null : 'detail-tab-status'"
+          >
+            @if (p.stats.length) {
+              <app-stat-hexagon [stats]="p.stats" />
+            } @else {
+              <p>Sem status.</p>
+            }
+          </div>
+        }
+      </section>
+    } @else if (detailError() === 'network') {
+      <div class="detail__state">
+        <p>Não foi possível carregar este Pokémon.</p>
+        <button type="button" class="detail__retry" (click)="retry()">Tentar de novo</button>
       </div>
+    } @else {
+      <p class="detail__state">Pokémon não encontrado.</p>
     }
   </div>
 </p-dialog>
