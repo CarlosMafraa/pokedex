@@ -1,0 +1,33 @@
+<div
+  class="scene"
+  [class.scene--night]="dark()"
+  [class.scene--animated]="animating()"
+  [class.scene--to-night]="animating() && dark()"
+  [class.scene--to-day]="animating() && !dark()"
+  aria-hidden="true"
+>
+  <div class="scene__sky scene__sky--day"></div>
+  <div class="scene__sky scene__sky--night"></div>
+  <img class="scene__layer scene__stars" src="assets/image/stars.svg" alt="" />
+  <div class="scene__dusk"></div>
+
+  <!-- Trilho X (externo) + trilho Y (interno) com easings diferentes = arco. -->
+  <div class="scene__track scene__track--sun">
+    <div class="scene__lift"><span class="scene__sun"></span></div>
+  </div>
+  <div class="scene__track scene__track--moon">
+    <div class="scene__lift"><span class="scene__moon"></span></div>
+  </div>
+
+  <img class="scene__layer scene__clouds" src="assets/image/clouds.svg" alt="" />
+  <img
+    class="scene__layer scene__land scene__land--day"
+    src="assets/image/landscape-day.svg"
+    alt=""
+  />
+  <img
+    class="scene__layer scene__land scene__land--night"
+    src="assets/image/landscape-night.svg"
+    alt=""
+  />
+</div>

@@ -47,28 +47,45 @@
 }
 
 .card__art {
+  position: relative;
   width: 96px;
   height: 96px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+/* Enquanto a arte não chega: pokébola apagada pulsando no lugar. */
+.card__art--loading::before {
+  content: '';
+  position: absolute;
+  inset: 26px;
+  background: url('../../../assets/favicon/pokebola.png') center / contain no-repeat;
+  filter: grayscale(1);
+  opacity: 0.25;
+  animation: card-art-pulse 1.2s ease-in-out infinite;
+}
+@keyframes card-art-pulse {
+  50% {
+    opacity: 0.1;
+  }
+}
 .card__art img {
+  opacity: 0;
+  transition: opacity 0.3s ease;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
 }
 
-/* Sprites animados da Gen V têm dimensões nativas muito diferentes entre si.
-   Fixamos a altura para todos ocuparem o mesmo espaço da arte estática; a
-   pixel-art é ampliada de forma nítida em vez de borrada. */
-.card__art img.card__art-img--animated {
-  width: 100%;
-  height: 80px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35));
+.card__art img.card__art-img--loaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card__art--loading::before {
+    animation: none;
+  }
 }
 
 .card__name {

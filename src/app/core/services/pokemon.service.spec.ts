@@ -184,4 +184,27 @@ describe('PokemonService', () => {
 
     expect(second).toEqual(jasmine.objectContaining({ id: 25 }));
   }));
+
+  it('descrição pt-BR: baixa o JSON uma vez e devolve null para id sem tradução', async () => {
+    const first = service.getFlavorTextPtBr(6);
+    httpMock
+      .expectOne('assets/i18n/flavor-pt-br.json')
+      .flush({ '6': 'Cospe fogo quente o bastante para derreter rochas.' });
+
+    expect(await first).toBe('Cospe fogo quente o bastante para derreter rochas.');
+    // segunda chamada usa o JSON já carregado (nenhuma requisição nova)
+    expect(await service.getFlavorTextPtBr(9999)).toBeNull();
+  });
+
+  it('descrição pt-BR: se o JSON falhar, devolve null e tenta de novo depois', async () => {
+    const failed = service.getFlavorTextPtBr(6);
+    httpMock
+      .expectOne('assets/i18n/flavor-pt-br.json')
+      .flush('offline', { status: 0, statusText: 'Unknown Error' });
+    expect(await failed).toBeNull();
+
+    const retried = service.getFlavorTextPtBr(6);
+    httpMock.expectOne('assets/i18n/flavor-pt-br.json').flush({ '6': 'ok' });
+    expect(await retried).toBe('ok');
+  });
 });

@@ -1,0 +1,19 @@
+<div class="tabs" [class.tabs--dimmed]="dimmed()" role="tablist" aria-label="Gerações">
+  @for (tab of tabs; track tab.index) {
+    <button
+      type="button"
+      role="tab"
+      class="tab"
+      [id]="tabId(tab.index)"
+      [attr.aria-selected]="tab.index === selected()"
+      [attr.aria-controls]="panelId()"
+      [attr.aria-label]="tab.label + ', ' + tab.range"
+      [attr.tabindex]="tab.index === selected() ? 0 : -1"
+      [title]="tab.label + ' (' + tab.range + ')'"
+      (click)="selectGeneration.emit(tab.index)"
+      (keydown)="onKeydown($event)"
+    >
+      {{ tab.roman }}
+    </button>
+  }
+</div>

@@ -17,7 +17,8 @@ import { Tab, TabList, TabPanel, TabPanels, Tabs } from 'primeng/tabs';
 import { PokemonStore } from '@core/services/pokemon-store';
 import { PokemonService } from '@core/services/pokemon.service';
 import { PokedexNumberPipe } from '@shared/pipes/pokedex-number.pipe';
-import { MAX_BASE_STAT, STAT_COLORS, STAT_LABELS } from '@core/models/constants/pokemon-stats';
+import { StatHexagonComponent } from './stat-hexagon/stat-hexagon.component';
+import { PokeballComponent } from '@shared/components/pokeball/pokeball.component';
 import { POKEMON_TYPE_LABELS, PokemonType } from '@core/models/constants/pokemon-types';
 
 const GENERATION_LABELS: Record<string, string> = {
@@ -45,6 +46,8 @@ const GENERATION_LABELS: Record<string, string> = {
     TabPanels,
     TabPanel,
     PokedexNumberPipe,
+    StatHexagonComponent,
+    PokeballComponent,
   ],
   templateUrl: './pokemon-detail.component.html',
   styleUrl: './pokemon-detail.component.scss',
@@ -59,9 +62,8 @@ export class PokemonDetailComponent implements OnDestroy {
   private readonly dialogRef = viewChild(Dialog);
   private closing = false;
 
-  readonly statColors = STAT_COLORS;
-  readonly maxStat = MAX_BASE_STAT;
   readonly visible = signal(true);
+  readonly activeTab = signal<'sobre' | 'status'>('sobre');
 
   readonly pokemon = this.store.selected;
   readonly species = this.store.selectedSpecies;
@@ -78,6 +80,20 @@ export class PokemonDetailComponent implements OnDestroy {
     return p ? this.api.artworkUrl(p.id) : '';
   });
 
+  /**
+   * Sprite animado (Gen V). No celular não há hover nos cards, então é aqui que
+   * ele aparece: um botão alterna arte ↔ GIF. Só existe para parte dos Pokémon
+   * (falta a partir do #650), por isso testamos antes de oferecer o botão.
+   */
+  readonly animatedUrl = computed(() => {
+    const p = this.pokemon();
+    return p ? this.api.animatedSpriteUrl(p.id) : '';
+  });
+  readonly hasAnimated = signal(false);
+  readonly showAnimated = signal(false);
+  /** A arte chegou: o Pokémon "sai da pokébola" (até lá, a pokébola balança). */
+  readonly artReady = signal(false);
+
   readonly typeBadges = computed(() =>
     (this.pokemon()?.types ?? []).map((t) => ({
       name: t.type.name,
@@ -87,12 +103,25 @@ export class PokemonDetailComponent implements OnDestroy {
 
   readonly primaryType = computed(() => this.pokemon()?.types?.[0]?.type.name ?? 'normal');
 
+  /** Descrição em pt-BR: `undefined` enquanto carrega, `null` se não houver tradução. */
+  readonly flavorPtBr = signal<string | null | undefined>(undefined);
+
   readonly flavorText = computed(() => {
-    const entries = this.species()?.flavor_text_entries ?? [];
-    const pick =
-      entries.find((e) => e.language.name === 'pt' || e.language.name === 'pt-BR') ??
-      entries.find((e) => e.language.name === 'en');
-    return pick?.flavor_text.replace(/\s+/g, ' ').trim() ?? '';
+    const pt = this.flavorPtBr();
+    if (pt === undefined) {
+      return '';
+    }
+    if (pt) {
+      return pt;
+    }
+    // sem tradução para este id: cai para o texto em inglês da PokéAPI
+    const entry = this.species()?.flavor_text_entries.find((e) => e.language.name === 'en');
+    return (
+      entry?.flavor_text
+        .replace(/\u00ad\s*/g, '')
+        .replace(/\s+/g, ' ')
+        .trim() ?? ''
+    );
   });
 
   readonly generationLabel = computed(() => {
@@ -117,6 +146,32 @@ export class PokemonDetailComponent implements OnDestroy {
       }
     });
 
+    effect((onCleanup) => {
+      const id = this.pokemon()?.id;
+      this.flavorPtBr.set(undefined);
+      if (id === undefined) {
+        return;
+      }
+      let current = true;
+      void this.api.getFlavorTextPtBr(id).then((text) => current && this.flavorPtBr.set(text));
+      onCleanup(() => (current = false));
+    });
+
+    // Ao trocar de Pokémon: volta para a arte e verifica se existe GIF.
+    effect((onCleanup) => {
+      const url = this.animatedUrl();
+      this.showAnimated.set(false);
+      this.hasAnimated.set(false);
+      this.artReady.set(false);
+      if (!url) {
+        return;
+      }
+      const probe = new Image();
+      probe.onload = () => this.hasAnimated.set(true);
+      probe.src = url;
+      onCleanup(() => (probe.onload = null));
+    });
+
     // O cabeçalho do PrimeNG está desativado; damos um nome acessível ao
     // role="dialog" à mão e o mantemos em dia com o estado (carregando/erro/nome).
     effect(() => this.syncDialogAria());
@@ -138,12 +193,16 @@ export class PokemonDetailComponent implements OnDestroy {
     }
   }
 
-  statLabel(name: string): string {
-    return STAT_LABELS[name] ?? name;
+  toggleAnimated(): void {
+    this.showAnimated.update((on) => !on);
   }
 
-  statPercent(baseStat: number): number {
-    return Math.min(100, (baseStat / MAX_BASE_STAT) * 100);
+  /** O GIF existia no teste mas falhou ao exibir: volta para a arte. */
+  onAnimatedError(): void {
+    if (this.showAnimated()) {
+      this.showAnimated.set(false);
+      this.hasAnimated.set(false);
+    }
   }
 
   heightInMeters(height: number | undefined): number {
@@ -163,6 +222,6 @@ export class PokemonDetailComponent implements OnDestroy {
     this.closing = true;
     this.visible.set(false);
     this.store.closeDetail();
-    void this.router.navigate(['..'], { relativeTo: this.route });
+    void this.router.navigate(['..'], { relativeTo: this.route, queryParamsHandling: 'preserve' });
   }
 }

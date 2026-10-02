@@ -4,34 +4,26 @@ import { PokemonService } from './pokemon.service';
 import { PokemonListEntry } from '@core/models/pokemon-list-entry';
 import { PokemonDetails } from '@core/models/pokemon-details';
 import { PokemonSpecies } from '@core/models/pokemon-species';
-import {
-  Generation,
-  GENERATIONS,
-  generationOf,
-  generationSize,
-} from '@core/models/constants/pokemon-generations';
+import { Generation, GENERATIONS } from '@core/models/constants/pokemon-generations';
 
 export type PokedexError = 'network' | 'not-found' | null;
 
-export interface PokedexSection {
-  /** Rótulo da geração; `null` quando é uma lista filtrada/buscada (sem divisão). */
-  label: string | null;
-  entries: PokemonListEntry[];
-}
+/** Último número nacional coberto pela Pokédex (fim da Geração IX). */
+const NATIONAL_DEX_SIZE = GENERATIONS[GENERATIONS.length - 1].end;
 
 /**
- * Estado central da Pokédex. A navegação carrega uma geração inteira por vez
- * (a primeira são os 151 da Geração I) e a grade é dividida por geração, já
- * que não há outra forma de identificar em que geração o usuário está.
+ * Estado central da Pokédex. A lista dos 1025 Pokémon (só nome e número, ~10 KB
+ * comprimida) vem em uma única requisição; as abas de geração apenas filtram
+ * essa lista por faixa de número, então trocar de aba é instantâneo. As artes
+ * continuam carregando sob demanda, só para os cards visíveis.
  */
 @Injectable({ providedIn: 'root' })
 export class PokemonStore {
   private readonly api = inject(PokemonService);
 
   private readonly _entries = signal<PokemonListEntry[]>([]);
-  private readonly _loadedGens = signal(0);
+  private readonly _genIndex = signal(0);
   private readonly _loading = signal(false);
-  private readonly _loadingMore = signal(false);
   private readonly _error = signal<PokedexError>(null);
   private readonly _filterText = signal('');
   private readonly _typeFilters = signal<string[]>([]);
@@ -48,8 +40,9 @@ export class PokemonStore {
   private readonly _detailError = signal<PokedexError>(null);
 
   readonly entries = this._entries.asReadonly();
+  readonly genIndex = this._genIndex.asReadonly();
+  readonly generation = computed<Generation>(() => GENERATIONS[this._genIndex()]);
   readonly loading = this._loading.asReadonly();
-  readonly loadingMore = this._loadingMore.asReadonly();
   readonly typeLoading = this._typeLoading.asReadonly();
   readonly error = this._error.asReadonly();
   readonly filterText = this._filterText.asReadonly();
@@ -60,7 +53,15 @@ export class PokemonStore {
   readonly detailLoading = this._detailLoading.asReadonly();
   readonly detailError = this._detailError.asReadonly();
 
-  /** Lista plana visível (resultado de busca, ou navegação filtrada por texto/tipo). */
+  /** Busca por texto ativa: vale para todas as gerações, não só a aba aberta. */
+  readonly searchingAllGenerations = computed(
+    () => this._searchResult() !== null || this._filterText().trim() !== '',
+  );
+
+  /**
+   * Cards visíveis. Com texto na busca, procura em todas as gerações; sem texto,
+   * mostra a geração da aba. O filtro de tipo vale nos dois casos.
+   */
   readonly visibleEntries = computed(() => {
     const hit = this._searchResult();
     if (hit) {
@@ -68,49 +69,14 @@ export class PokemonStore {
     }
     const term = this._filterText().trim().toLowerCase();
     const typeIds = this._typeMemberIds();
+    const gen = this.generation();
     return this._entries().filter((entry) => {
-      const matchesText =
-        !term || entry.name.toLowerCase().includes(term) || String(entry.id) === term;
-      const matchesType = !typeIds || typeIds.has(entry.id);
-      return matchesText && matchesType;
+      const inScope = term
+        ? entry.name.toLowerCase().includes(term) || String(entry.id) === term
+        : entry.id >= gen.start && entry.id <= gen.end;
+      return inScope && (!typeIds || typeIds.has(entry.id));
     });
   });
-
-  /** Grade dividida por geração quando navegando; uma seção só quando filtrando/buscando. */
-  readonly visibleSections = computed<PokedexSection[]>(() => {
-    const flat = this.visibleEntries();
-    // Enquanto os ids do filtro de tipo ainda não chegaram, mantém a divisão
-    // por geração para não piscar a lista inteira sem cabeçalhos.
-    const filtering =
-      this._searchResult() || this._filterText().trim() !== '' || this._typeMemberIds() !== null;
-    if (filtering) {
-      return flat.length ? [{ label: null, entries: flat }] : [];
-    }
-    const sections: PokedexSection[] = [];
-    for (const entry of flat) {
-      const label = generationOf(entry.id)?.label ?? 'Outros';
-      const last = sections.at(-1);
-      if (last && last.label === label) {
-        last.entries.push(entry);
-      } else {
-        sections.push({ label, entries: [entry] });
-      }
-    }
-    return sections;
-  });
-
-  /** Próxima geração ainda não carregada (para o rótulo do botão "carregar mais"). */
-  readonly nextGeneration = computed<Generation | null>(
-    () => GENERATIONS[this._loadedGens()] ?? null,
-  );
-
-  readonly hasMore = computed(
-    () =>
-      !this._searchResult() &&
-      this._filterText().trim() === '' &&
-      this._typeMemberIds() === null &&
-      this._loadedGens() < GENERATIONS.length,
-  );
 
   readonly isEmpty = computed(
     () =>
@@ -120,39 +86,26 @@ export class PokemonStore {
       this.visibleEntries().length === 0,
   );
 
-  async loadFirstPage(): Promise<void> {
+  /** Lista completa da Pokédex nacional (uma requisição; cacheada pelo serviço). */
+  async loadAll(): Promise<void> {
     this._loading.set(true);
     this._error.set(null);
     this._searchResult.set(null);
     try {
-      const gen = GENERATIONS[0];
-      const page = await this.api.getPage(generationSize(gen), gen.start - 1);
+      const page = await this.api.getPage(NATIONAL_DEX_SIZE, 0);
       this._entries.set(page.entries);
-      this._loadedGens.set(1);
     } catch {
       this._error.set('network');
       this._entries.set([]);
-      this._loadedGens.set(0);
     } finally {
       this._loading.set(false);
     }
   }
 
-  async loadMore(): Promise<void> {
-    if (this._loadingMore() || !this.hasMore()) {
-      return;
-    }
-    const gen = GENERATIONS[this._loadedGens()];
-    this._loadingMore.set(true);
-    this._error.set(null);
-    try {
-      const page = await this.api.getPage(generationSize(gen), gen.start - 1);
-      this._entries.update((current) => [...current, ...page.entries]);
-      this._loadedGens.update((n) => n + 1);
-    } catch {
-      this._error.set('network');
-    } finally {
-      this._loadingMore.set(false);
+  /** Troca a aba de geração (índice 0–8; fora da faixa é ignorado). */
+  setGeneration(index: number): void {
+    if (Number.isInteger(index) && index >= 0 && index < GENERATIONS.length) {
+      this._genIndex.set(index);
     }
   }
 
@@ -162,10 +115,8 @@ export class PokemonStore {
 
   /**
    * Filtro por tipo: uma requisição a `/type/{nome}` por tipo selecionado
-   * (resultado em cache), unindo os ids. Em seguida carrega as gerações que
-   * ainda faltam e contêm algum Pokémon do filtro, para o usuário ver o
-   * conjunto completo sem clicar em "carregar mais". Só o pedido mais recente
-   * é aplicado.
+   * (resultado em cache), unindo os ids. Como a lista inteira já está em
+   * memória, não precisa carregar mais nada. Só o pedido mais recente vale.
    */
   setTypeFilters(types: string[]): void {
     this._typeFilters.set(types);
@@ -192,7 +143,6 @@ export class PokemonStore {
         }
         this._typeMemberIds.set(union);
         this._error.set(null);
-        await this.loadGensCovering(union, token);
       } catch {
         if (token === this.typeFilterToken) {
           this._error.set('network');
@@ -203,36 +153,6 @@ export class PokemonStore {
         }
       }
     })();
-  }
-
-  /**
-   * Carrega em sequência as gerações ainda não carregadas até a última que
-   * contém algum id de `ids`, mantendo `_loadedGens` contíguo. Aborta se o
-   * filtro mudar no meio (token). O estado de carregamento fica por conta do
-   * `_typeLoading` do chamador ({@link setTypeFilters}) — não usa `_loadingMore`,
-   * que é o lock do botão "carregar mais" (escondido sob filtro de tipo).
-   */
-  private async loadGensCovering(ids: Set<number>, token: number): Promise<void> {
-    let lastGenIdx = -1;
-    for (const id of ids) {
-      const idx = GENERATIONS.findIndex((gen) => id >= gen.start && id <= gen.end);
-      if (idx > lastGenIdx) {
-        lastGenIdx = idx;
-      }
-    }
-
-    while (this._loadedGens() <= lastGenIdx && this._loadedGens() < GENERATIONS.length) {
-      if (token !== this.typeFilterToken) {
-        return;
-      }
-      const gen = GENERATIONS[this._loadedGens()];
-      const page = await this.api.getPage(generationSize(gen), gen.start - 1);
-      if (token !== this.typeFilterToken) {
-        return;
-      }
-      this._entries.update((current) => [...current, ...page.entries]);
-      this._loadedGens.update((n) => n + 1);
-    }
   }
 
   /**
@@ -271,7 +191,6 @@ export class PokemonStore {
         id: details.id,
         name: details.name,
         artworkUrl: this.api.artworkUrl(details.id),
-        animatedSpriteUrl: this.api.animatedSpriteUrl(details.id),
         types: details.types.map((type) => type.type.name),
       });
       this._error.set(null);

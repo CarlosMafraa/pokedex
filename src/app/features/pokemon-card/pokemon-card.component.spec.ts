@@ -9,7 +9,6 @@ const entry: PokemonListEntry = {
   id: 25,
   name: 'pikachu',
   artworkUrl: 'https://example.test/25.png',
-  animatedSpriteUrl: 'https://example.test/25.gif',
   types: ['electric'],
 };
 
@@ -31,44 +30,22 @@ describe('PokemonCardComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('mostra a arte oficial por padrão e o sprite animado no hover', () => {
+  it('mostra a arte oficial, sem trocar no hover', () => {
     const component = fixture.componentInstance;
-    const img = () => fixture.nativeElement.querySelector('.card__art img') as HTMLImageElement;
+    const card = fixture.nativeElement.querySelector('.card') as HTMLElement;
 
     expect(component.currentImage()).toBe(entry.artworkUrl);
-    expect(img().classList.contains('card__art-img--animated')).toBe(false);
-
-    component.hovered.set(true);
+    card.dispatchEvent(new MouseEvent('mouseenter'));
     fixture.detectChanges();
-
-    expect(component.currentImage()).toBe(entry.animatedSpriteUrl);
-    // o sprite animado recebe a classe que normaliza seu tamanho
-    expect(img().classList.contains('card__art-img--animated')).toBe(true);
-  });
-
-  it('cai para o sprite animado se a arte falhar', () => {
-    const component = fixture.componentInstance;
-    component.onImageError(entry.artworkUrl);
-    expect(component.currentImage()).toBe(entry.animatedSpriteUrl);
-  });
-
-  it('volta para a arte oficial no hover se o GIF não existir', () => {
-    const component = fixture.componentInstance;
-    component.hovered.set(true);
-    expect(component.currentImage()).toBe(entry.animatedSpriteUrl);
-
-    component.onImageError(entry.animatedSpriteUrl);
     expect(component.currentImage()).toBe(entry.artworkUrl);
-    expect(component.showingAnimated()).toBe(false);
   });
 
-  it('mostra a pokébola quando nem a arte nem o GIF carregam', () => {
+  it('mostra a pokébola quando a arte não carrega', () => {
     const component = fixture.componentInstance;
-    component.onImageError(entry.artworkUrl);
-    component.onImageError(entry.animatedSpriteUrl);
+    component.onArtworkError();
     fixture.detectChanges();
 
-    expect(component.showingPlaceholder()).toBe(true);
+    expect(component.currentImage()).toContain('pokebola.png');
     const img = fixture.nativeElement.querySelector('.card__art img') as HTMLImageElement;
     expect(img.classList.contains('card__art-img--placeholder')).toBe(true);
   });

@@ -6,7 +6,7 @@
   [dismissableMask]="true"
   [showHeader]="false"
   (onShow)="syncDialogAria()"
-  [style]="{ width: 'min(92vw, 460px)', overflow: 'hidden' }"
+  [style]="{ width: 'min(92vw, 460px)', maxHeight: '96dvh', overflow: 'hidden' }"
   contentStyleClass="pokemon-detail__content"
 >
   <div class="detail" [class]="'type-' + primaryType()">
@@ -16,7 +16,10 @@
       </button>
 
       @if (loading() && !pokemon()) {
-        <p class="detail__loading">Carregando…</p>
+        <div class="detail__loading" role="status">
+          <app-pokeball [size]="64" />
+          <span>Carregando…</span>
+        </div>
       } @else if (pokemon()) {
         @let p = pokemon()!;
         <span class="detail__number">{{ p.id | pokedexNumber }}</span>
@@ -26,14 +29,39 @@
             <span class="detail__type-badge" [class]="'type-' + badge.name">{{ badge.label }}</span>
           }
         </div>
-        <img
-          class="detail__art"
-          [src]="artwork()"
-          [alt]="p.name | titlecase"
-          width="190"
-          height="190"
-          loading="eager"
-        />
+        <div class="detail__art-wrap">
+          @if (!artReady()) {
+            <app-pokeball class="detail__art-ball" [size]="52" />
+          }
+          <img
+            class="detail__art"
+            [class.detail__art--ready]="artReady()"
+            [class.detail__art--animated]="showAnimated()"
+            [src]="showAnimated() ? animatedUrl() : artwork()"
+            [alt]="p.name | titlecase"
+            width="160"
+            height="160"
+            loading="eager"
+            (load)="artReady.set(true)"
+            (error)="onAnimatedError()"
+          />
+          @if (hasAnimated()) {
+            <button
+              type="button"
+              class="detail__animate"
+              [attr.aria-pressed]="showAnimated()"
+              (click)="toggleAnimated()"
+            >
+              <i
+                class="pi"
+                [class.pi-play]="!showAnimated()"
+                [class.pi-image]="showAnimated()"
+                aria-hidden="true"
+              ></i>
+              {{ showAnimated() ? 'Ver arte' : 'Animar' }}
+            </button>
+          }
+        </div>
       } @else if (detailError() === 'network') {
         <div class="detail__loading detail__loading--error">
           <p>Não foi possível carregar este Pokémon.</p>
@@ -46,7 +74,7 @@
 
     @if (pokemon(); as p) {
       <div class="detail__body">
-        <p-tabs value="sobre">
+        <p-tabs [value]="activeTab()" (valueChange)="activeTab.set($any($event))">
           <p-tablist>
             <p-tab value="sobre">Sobre</p-tab>
             <p-tab value="status">Status</p-tab>
@@ -87,27 +115,13 @@
             </p-tabpanel>
 
             <p-tabpanel value="status">
-              @for (stat of p.stats; track stat.stat.name; let i = $index) {
-                <div class="detail__stat">
-                  <span class="detail__stat-name">{{ statLabel(stat.stat.name) }}</span>
-                  <span class="detail__stat-value">{{ stat.base_stat }}</span>
-                </div>
-                <div
-                  class="detail__bar"
-                  role="progressbar"
-                  aria-valuemin="0"
-                  [attr.aria-valuemax]="maxStat"
-                  [attr.aria-valuenow]="stat.base_stat"
-                  [attr.aria-label]="statLabel(stat.stat.name)"
-                >
-                  <div
-                    class="detail__bar-fill"
-                    [style.width.%]="statPercent(stat.base_stat)"
-                    [style.background]="statColors[i % statColors.length]"
-                  ></div>
-                </div>
-              } @empty {
-                <p>Sem status.</p>
+              <!-- Só monta ao abrir a aba: assim a animação do hexágono é vista. -->
+              @if (activeTab() === 'status') {
+                @if (p.stats.length) {
+                  <app-stat-hexagon [stats]="p.stats" />
+                } @else {
+                  <p>Sem status.</p>
+                }
               }
             </p-tabpanel>
           </p-tabpanels>

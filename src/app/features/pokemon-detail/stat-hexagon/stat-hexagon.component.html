@@ -1,0 +1,51 @@
+<figure class="hex">
+  <svg class="hex__chart" viewBox="0 0 320 290" aria-hidden="true" focusable="false">
+    <g class="hex__grid">
+      @for (ring of rings; track $index) {
+        <polygon [attr.points]="ring" />
+      }
+      @for (s of spokes; track $index) {
+        <line [attr.x1]="center.x" [attr.y1]="center.y" [attr.x2]="s[0]" [attr.y2]="s[1]" />
+      }
+    </g>
+
+    <polygon class="hex__area" [attr.points]="polygon()" />
+    @for (v of vertices(); track v.key) {
+      <circle class="hex__dot" [attr.cx]="v.x" [attr.cy]="v.y" r="4">
+        <title>{{ v.label }}: {{ v.value }}</title>
+      </circle>
+    }
+
+    @for (v of vertices(); track v.key) {
+      <text class="hex__label" [attr.x]="v.lx" [attr.y]="v.labelY" [attr.text-anchor]="v.anchor">
+        {{ v.shortLabel }}
+      </text>
+      <text class="hex__value" [attr.x]="v.lx" [attr.y]="v.valueY" [attr.text-anchor]="v.anchor">
+        {{ v.value }}
+      </text>
+    }
+  </svg>
+
+  <figcaption class="hex__total">
+    Total <strong>{{ total() }}</strong>
+  </figcaption>
+
+  <!-- Versão em tabela para leitores de tela (o SVG é decorativo). -->
+  <table class="hex__table">
+    <caption>
+      Status base
+    </caption>
+    <tbody>
+      @for (v of vertices(); track v.key) {
+        <tr>
+          <th scope="row">{{ v.label }}</th>
+          <td>{{ v.value }}</td>
+        </tr>
+      }
+      <tr>
+        <th scope="row">Total</th>
+        <td>{{ total() }}</td>
+      </tr>
+    </tbody>
+  </table>
+</figure>

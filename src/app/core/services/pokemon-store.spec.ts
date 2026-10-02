@@ -5,7 +5,7 @@ import { PokemonService } from './pokemon.service';
 import { PokemonListEntry } from '@core/models/pokemon-list-entry';
 
 function entry(id: number, name: string, types?: string[]): PokemonListEntry {
-  return { id, name, artworkUrl: `${id}.png`, animatedSpriteUrl: `${id}.gif`, types };
+  return { id, name, artworkUrl: `${id}.png`, types };
 }
 
 /** Deixa a IIFE assíncrona de setTypeFilters resolver por completo. */
@@ -22,10 +22,8 @@ describe('PokemonStore', () => {
       'getSpecies',
       'getTypeMemberIds',
       'artworkUrl',
-      'animatedSpriteUrl',
     ]);
     api.artworkUrl.and.callFake((id) => `${id}.png`);
-    api.animatedSpriteUrl.and.callFake((id) => `${id}.gif`);
     api.getTypeMemberIds.and.resolveTo(new Set<number>());
 
     TestBed.configureTestingModule({
@@ -34,172 +32,123 @@ describe('PokemonStore', () => {
     store = TestBed.inject(PokemonStore);
   });
 
-  it('loadFirstPage carrega a Geração I (limit 151, offset 0) e ainda há mais', async () => {
-    api.getPage.and.resolveTo({
-      total: 1302,
-      entries: [entry(1, 'bulbasaur'), entry(4, 'charmander')],
-    });
+  /** Lista com um Pokémon de algumas gerações diferentes. */
+  const national = [
+    entry(1, 'bulbasaur', ['grass']),
+    entry(4, 'charmander', ['fire']),
+    entry(25, 'pikachu', ['electric']),
+    entry(155, 'cyndaquil', ['fire']),
+    entry(252, 'treecko', ['grass']),
+  ];
 
-    await store.loadFirstPage();
+  async function loaded() {
+    api.getPage.and.resolveTo({ total: 1025, entries: national });
+    await store.loadAll();
+  }
 
-    expect(api.getPage).toHaveBeenCalledWith(151, 0);
-    expect(store.entries().length).toBe(2);
-    expect(store.hasMore()).toBeTrue();
-    expect(store.nextGeneration()?.label).toBe('Geração II');
+  it('loadAll pede a lista nacional inteira de uma vez (limit 1025, offset 0)', async () => {
+    await loaded();
+    expect(api.getPage).toHaveBeenCalledOnceWith(1025, 0);
+    expect(store.entries().length).toBe(5);
   });
 
-  it('loadMore carrega a próxima geração (Gen II: limit 100, offset 151)', async () => {
-    api.getPage.and.resolveTo({ total: 1302, entries: [entry(1, 'bulbasaur')] });
-    await store.loadFirstPage();
+  it('a aba de geração filtra por faixa de número, sem nova requisição', async () => {
+    await loaded();
+    expect(store.generation().label).toBe('Geração I');
+    expect(store.visibleEntries().map((e) => e.name)).toEqual([
+      'bulbasaur',
+      'charmander',
+      'pikachu',
+    ]);
 
-    api.getPage.and.resolveTo({ total: 1302, entries: [entry(152, 'chikorita')] });
-    await store.loadMore();
-
-    expect(api.getPage).toHaveBeenCalledWith(100, 151);
-    expect(store.entries().map((e) => e.id)).toEqual([1, 152]);
+    store.setGeneration(1);
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['cyndaquil']);
+    store.setGeneration(2);
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['treecko']);
+    expect(api.getPage).toHaveBeenCalledTimes(1);
   });
 
-  it('loadMore que falha e depois dá certo limpa o erro (não fica preso)', async () => {
-    api.getPage.and.resolveTo({ total: 1302, entries: [entry(1, 'bulbasaur')] });
-    await store.loadFirstPage();
+  it('setGeneration ignora índices fora da faixa', async () => {
+    await loaded();
+    store.setGeneration(4);
+    store.setGeneration(9);
+    store.setGeneration(-1);
+    store.setGeneration(1.5);
+    expect(store.genIndex()).toBe(4);
+  });
 
+  it('falha na carga marca erro de rede e retentativa limpa', async () => {
     api.getPage.and.rejectWith(new Error('rede'));
-    await store.loadMore();
+    await store.loadAll();
     expect(store.error()).toBe('network');
 
-    api.getPage.and.resolveTo({ total: 1302, entries: [entry(152, 'chikorita')] });
-    await store.loadMore();
+    await loaded();
     expect(store.error()).toBeNull();
-    expect(store.entries().map((e) => e.id)).toEqual([1, 152]);
+    expect(store.entries().length).toBe(5);
   });
 
-  it('visibleSections divide a lista navegada por geração', async () => {
-    api.getPage.and.resolveTo({
-      total: 1302,
-      entries: [entry(1, 'bulbasaur'), entry(151, 'mew'), entry(152, 'chikorita')],
-    });
-    await store.loadFirstPage();
-    api.getPage.and.resolveTo({ total: 1302, entries: [entry(152, 'chikorita')] });
-    await store.loadMore();
-
-    const labels = store.visibleSections().map((s) => s.label);
-    expect(labels).toEqual(['Geração I', 'Geração II']);
-  });
-
-  it('com filtro ativo a grade vira uma seção só (sem divisão por geração)', async () => {
-    api.getPage.and.resolveTo({
-      total: 1302,
-      entries: [entry(1, 'bulbasaur', ['grass']), entry(4, 'charmander', ['fire'])],
-    });
-    await store.loadFirstPage();
-
-    api.getTypeMemberIds.and.resolveTo(new Set([4]));
-    store.setTypeFilters(['fire']);
-    await flushMicrotasks();
-
-    const sections = store.visibleSections();
-    expect(sections.length).toBe(1);
-    expect(sections[0].label).toBeNull();
-    expect(sections[0].entries.map((e) => e.name)).toEqual(['charmander']);
-  });
-
-  it('visibleEntries filtra por texto', async () => {
-    api.getPage.and.resolveTo({
-      total: 2,
-      entries: [entry(1, 'bulbasaur'), entry(25, 'pikachu')],
-    });
-    await store.loadFirstPage();
-
-    store.setFilterText('pika');
-    expect(store.visibleEntries().map((e) => e.name)).toEqual(['pikachu']);
+  it('busca por texto vale para todas as gerações, não só a aba aberta', async () => {
+    await loaded();
+    store.setGeneration(2); // aba III
+    store.setFilterText('cynda');
+    expect(store.searchingAllGenerations()).toBeTrue();
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['cyndaquil']);
 
     store.setFilterText('25');
     expect(store.visibleEntries().map((e) => e.name)).toEqual(['pikachu']);
+
+    store.setFilterText('');
+    expect(store.searchingAllGenerations()).toBeFalse();
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['treecko']);
   });
 
-  it('filtra por tipo com uma requisição a /type/{nome} (união dos ids)', async () => {
-    api.getPage.and.resolveTo({
-      total: 2,
-      entries: [entry(1, 'bulbasaur'), entry(4, 'charmander')],
-    });
-    await store.loadFirstPage();
-
-    api.getTypeMemberIds.and.resolveTo(new Set([4, 6]));
-    store.setTypeFilters(['fire']);
-    await flushMicrotasks();
-
-    expect(api.getTypeMemberIds).toHaveBeenCalledOnceWith('fire');
-    expect(api.getDetails).not.toHaveBeenCalled();
-    expect(store.visibleEntries().map((e) => e.name)).toEqual(['charmander']);
-    expect(store.hasMore()).toBeFalse(); // filtro de tipo esconde o "carregar mais"
-
-    store.setTypeFilters([]);
-    expect(store.visibleEntries().map((e) => e.name)).toEqual(['bulbasaur', 'charmander']);
-  });
-
-  it('filtro por tipo carrega as gerações que faltam até o último match', async () => {
-    api.getPage.and.callFake((limit: number, offset: number) =>
-      Promise.resolve(
-        offset === 0
-          ? { total: 1302, entries: [entry(4, 'charmander')] }
-          : { total: 1302, entries: [entry(155, 'cyndaquil')] },
-      ),
-    );
-    await store.loadFirstPage();
-
-    // 155 é da Geração II (152–251), ainda não carregada
+  it('filtro de tipo vale dentro da aba (uma requisição a /type/{nome})', async () => {
+    await loaded();
     api.getTypeMemberIds.and.resolveTo(new Set([4, 155]));
     store.setTypeFilters(['fire']);
     await flushMicrotasks();
 
-    expect(api.getPage).toHaveBeenCalledWith(100, 151);
-    expect(store.entries().map((e) => e.id)).toEqual([4, 155]);
-    expect(store.visibleEntries().map((e) => e.name)).toEqual(['charmander', 'cyndaquil']);
+    expect(api.getTypeMemberIds).toHaveBeenCalledOnceWith('fire');
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['charmander']);
+    store.setGeneration(1);
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['cyndaquil']);
+    // nenhuma lista extra: tudo já estava em memória
+    expect(api.getPage).toHaveBeenCalledTimes(1);
+
+    store.setTypeFilters([]);
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['cyndaquil']);
   });
 
   it('setTypeFilters aplica só o pedido mais recente (race)', async () => {
-    api.getPage.and.resolveTo({
-      total: 3,
-      entries: [entry(1, 'bulbasaur'), entry(4, 'charmander'), entry(7, 'squirtle')],
-    });
-    await store.loadFirstPage();
-
+    await loaded();
     api.getTypeMemberIds.and.callFake((type) =>
-      Promise.resolve(type === 'fire' ? new Set([4]) : new Set([7])),
+      Promise.resolve(type === 'fire' ? new Set([4]) : new Set([1])),
     );
 
     store.setTypeFilters(['fire']);
-    store.setTypeFilters(['water']);
+    store.setTypeFilters(['grass']);
     await flushMicrotasks();
 
-    expect(store.visibleEntries().map((e) => e.name)).toEqual(['squirtle']);
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['bulbasaur']);
   });
 
   it('search cai para busca exata na API quando não há match local', async () => {
-    api.getPage.and.resolveTo({ total: 1, entries: [entry(1, 'bulbasaur')] });
-    await store.loadFirstPage();
-
+    await loaded();
     api.getDetails.and.resolveTo({
-      id: 130,
-      name: 'gyarados',
-      types: [{ slot: 1, type: { name: 'water', url: '' } }],
+      id: 10034,
+      name: 'charizard-mega-x',
+      types: [{ slot: 1, type: { name: 'fire', url: '' } }],
     } as never);
 
-    await store.search('gyarados');
+    await store.search('charizard-mega-x');
 
-    expect(api.getDetails).toHaveBeenCalledWith('gyarados');
-    expect(store.visibleEntries().map((e) => e.name)).toEqual(['gyarados']);
+    expect(api.getDetails).toHaveBeenCalledWith('charizard-mega-x');
+    expect(store.visibleEntries().map((e) => e.name)).toEqual(['charizard-mega-x']);
     expect(store.isSearchResult()).toBeTrue();
-    expect(store.hasMore()).toBeFalse();
   });
 
   it('filtro local instantâneo não chama a API', async () => {
-    api.getPage.and.resolveTo({
-      total: 2,
-      entries: [entry(1, 'bulbasaur'), entry(25, 'pikachu')],
-    });
-    await store.loadFirstPage();
-
+    await loaded();
     await store.search('pika');
 
     expect(api.getDetails).not.toHaveBeenCalled();
@@ -208,8 +157,7 @@ describe('PokemonStore', () => {
   });
 
   it('search silencioso (quiet) não seta erro nem toast', async () => {
-    api.getPage.and.resolveTo({ total: 0, entries: [] });
-    await store.loadFirstPage();
+    await loaded();
     api.getDetails.and.rejectWith(new Error('404'));
 
     await store.search('missingno', { quiet: true });

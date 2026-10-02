@@ -3,6 +3,9 @@ import { effect, Injectable, signal } from '@angular/core';
 type ThemeMode = 'light' | 'dark';
 const STORAGE_KEY = 'pokedex-theme';
 const DARK_CLASS = 'app-dark';
+const TRANSITION_CLASS = 'theme-transition';
+/** Um pouco acima de --theme-duration (styles.scss) para a transição terminar. */
+const TRANSITION_MS = 1300;
 
 /**
  * Controla o modo claro/escuro. A escolha do usuário é persistida em
@@ -27,7 +30,15 @@ export class ThemeService {
     });
   }
 
+  private transitionTimer: ReturnType<typeof setTimeout> | undefined;
+
   toggle(): void {
+    // Liga a transição de cores só durante a troca feita pelo usuário.
+    const root = document.documentElement;
+    root.classList.add(TRANSITION_CLASS);
+    clearTimeout(this.transitionTimer);
+    this.transitionTimer = setTimeout(() => root.classList.remove(TRANSITION_CLASS), TRANSITION_MS);
+
     this._mode.update((mode) => (mode === 'dark' ? 'light' : 'dark'));
   }
 

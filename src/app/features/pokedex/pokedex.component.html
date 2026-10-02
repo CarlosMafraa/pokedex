@@ -1,5 +1,11 @@
 <div class="pokedex">
   <header class="pokedex__header">
+    <div class="pokedex__lights" aria-hidden="true">
+      <span class="pokedex__lens"></span>
+      <span class="pokedex__led pokedex__led--red"></span>
+      <span class="pokedex__led pokedex__led--yellow"></span>
+      <span class="pokedex__led pokedex__led--green"></span>
+    </div>
     <h1 class="pokedex__title">
       <img
         ngSrc="assets/image/pokedex.png"
@@ -55,50 +61,63 @@
       placeholder="Tipos"
       ariaLabel="Filtrar por tipo"
       display="chip"
+      [maxSelectedLabels]="1"
+      selectedItemsLabel="{0} tipos"
       [loading]="store.typeLoading()"
       [showToggleAll]="false"
       styleClass="pokedex__types"
     />
   </form>
 
-  <main class="pokedex__results">
-    @if (store.loading()) {
-      <p class="pokedex__status">Carregando Pokédex…</p>
-    } @else if (store.error() === 'network' && store.entries().length === 0) {
-      <div class="pokedex__status">
-        <p>Não foi possível carregar a Pokédex.</p>
-        <p-button label="Tentar de novo" (onClick)="retryInitialLoad()" />
-      </div>
-    } @else if (store.isEmpty()) {
-      <div class="pokedex__status">
-        <p>Nada encontrado com esses filtros.</p>
-        <p-button label="Limpar filtros" severity="secondary" (onClick)="clearSearch()" />
-      </div>
-    } @else {
-      @for (section of store.visibleSections(); track section.label) {
-        @if (section.label) {
-          <h2 class="pokedex__gen">{{ section.label }}</h2>
-        }
-        <ul class="pokedex__grid">
-          @for (entry of section.entries; track entry.id) {
-            <li><app-pokemon-card [entry]="entry" /></li>
+  <app-generation-tabs
+    class="pokedex__gens"
+    [selected]="store.genIndex()"
+    [dimmed]="store.searchingAllGenerations()"
+    panelId="pokedex-panel"
+    (selectGeneration)="selectGeneration($event)"
+  />
+
+  <div class="pokedex__screen-frame">
+    <span class="pokedex__screen-dots" aria-hidden="true"><span></span><span></span></span>
+    <main
+      id="pokedex-panel"
+      class="pokedex__results"
+      [class.pokedex__results--intro]="intro() !== 'done'"
+      role="tabpanel"
+      [attr.aria-labelledby]="'gen-tab-' + store.genIndex()"
+    >
+      @if (intro() !== 'done') {
+        <app-screen-intro [open]="intro() === 'opening'" />
+      }
+      @if (store.loading()) {
+        <p class="pokedex__status">Carregando Pokédex…</p>
+      } @else if (store.error() === 'network' && store.entries().length === 0) {
+        <div class="pokedex__status">
+          <p>Não foi possível carregar a Pokédex.</p>
+          <p-button label="Tentar de novo" (onClick)="retryInitialLoad()" />
+        </div>
+      } @else if (store.isEmpty()) {
+        <div class="pokedex__status">
+          <p>Nada encontrado com esses filtros.</p>
+          <p-button label="Limpar filtros" severity="secondary" (onClick)="clearSearch()" />
+        </div>
+      } @else {
+        <h2 class="pokedex__gen">{{ screenTitle() }}</h2>
+        <ul
+          class="pokedex__grid"
+          [class.pokedex__grid--reveal]="intro() === 'opening' || tabReveal()"
+        >
+          @for (entry of store.visibleEntries(); track entry.id) {
+            <li [style.--i]="$index"><app-pokemon-card [entry]="entry" /></li>
           }
         </ul>
       }
-
-      @if (store.hasMore()) {
-        <div class="pokedex__more" appInViewport appInViewportRepeat (inViewport)="loadMore()">
-          <p-button
-            [label]="'Carregar ' + (store.nextGeneration()?.label ?? 'mais')"
-            severity="secondary"
-            [text]="true"
-            [loading]="store.loadingMore()"
-            (onClick)="loadMore()"
-          />
-        </div>
-      }
-    }
-  </main>
+    </main>
+    <div class="pokedex__screen-footer" aria-hidden="true">
+      <span class="pokedex__screen-button"></span>
+      <span class="pokedex__speaker"><span></span><span></span><span></span><span></span></span>
+    </div>
+  </div>
 </div>
 
 <router-outlet />

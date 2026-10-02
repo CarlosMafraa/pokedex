@@ -1,0 +1,235 @@
+:host {
+  /* Duração da troca dia ↔ noite; tudo na cena deriva dela. */
+  --scene-ease: cubic-bezier(0.45, 0.05, 0.35, 1);
+  --horizon: 62%;
+  --scene-duration: 1.6s;
+}
+
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Camadas que fazem cross-fade: sem transição até a primeira troca. */
+.scene__sky,
+.scene__layer,
+.scene__dusk {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.scene--animated :is(.scene__sky--night, .scene__land, .scene__stars, .scene__clouds) {
+  transition: opacity var(--scene-duration) var(--scene-ease);
+}
+
+.scene__sky--day {
+  background: linear-gradient(#7cc8f2, #c6ecff 60%, #e9f8ff);
+}
+.scene__sky--night {
+  background: linear-gradient(#070c22, #14204a 60%, #24366b);
+  opacity: 0;
+}
+
+.scene__layer {
+  object-fit: cover;
+}
+.scene__land {
+  object-position: center bottom;
+}
+.scene__stars,
+.scene__clouds {
+  object-position: center top;
+}
+
+.scene__stars {
+  opacity: 0;
+}
+.scene__land--night {
+  opacity: 0;
+}
+
+/* Brilho alaranjado no horizonte só durante a troca (pôr/nascer do sol). */
+.scene__dusk {
+  opacity: 0;
+  background: radial-gradient(
+    120% 55% at 50% var(--horizon),
+    rgba(255, 140, 70, 0.75),
+    rgba(255, 90, 120, 0.35) 45%,
+    transparent 75%
+  );
+}
+.scene--to-night .scene__dusk {
+  animation: scene-dusk-to-night var(--scene-duration) ease-in-out;
+}
+.scene--to-day .scene__dusk {
+  animation: scene-dusk-to-day var(--scene-duration) ease-in-out;
+}
+@keyframes scene-dusk-to-night {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+@keyframes scene-dusk-to-day {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+}
+
+/* Sol (direita) e lua (esquerda) ficam no centro das faixas laterais que o
+   aparelho (até 1100px) deixa à mostra. Escondidos = abaixo da linha das colinas,
+   atrás da camada da paisagem. */
+.scene__track {
+  --side: max(calc((100vw - 1100px) / 4), 70px);
+  position: absolute;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+.scene__track--sun {
+  right: var(--side);
+}
+.scene__track--moon {
+  left: var(--side);
+}
+.scene__lift {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.scene__sun,
+.scene__moon {
+  position: absolute;
+  left: calc(var(--size) / -2);
+  top: calc(var(--size) / -2);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+}
+
+/* Posições: no céu = 17% da altura; escondido = 85% (atrás das colinas). O
+   deslocamento lateral faz o astro "cair" para fora, rumo à borda da tela. */
+.scene__track--sun {
+  transform: translateX(0);
+}
+.scene__track--sun .scene__lift {
+  transform: translateY(17vh);
+}
+.scene--night .scene__track--sun {
+  transform: translateX(9vw);
+}
+.scene--night .scene__track--sun .scene__lift {
+  transform: translateY(88vh);
+}
+
+.scene__track--moon {
+  transform: translateX(-9vw);
+}
+.scene__track--moon .scene__lift {
+  transform: translateY(88vh);
+}
+.scene--night .scene__track--moon {
+  transform: translateX(0);
+}
+.scene--night .scene__track--moon .scene__lift {
+  transform: translateY(16vh);
+}
+
+/* Pôr: X rápido no começo (ease-out) e Y acelerando (ease-in) = arco caindo.
+   Nascer: o contrário. O astro que sai vai primeiro; o que entra espera. */
+.scene--animated .scene__track,
+.scene--animated .scene__lift {
+  transition: transform calc(var(--scene-duration) * 0.62);
+}
+/* indo para a noite: sol se põe já, lua nasce depois */
+.scene--animated.scene--night .scene__track--sun {
+  transition-timing-function: ease-out;
+}
+.scene--animated.scene--night .scene__track--sun .scene__lift {
+  transition-timing-function: ease-in;
+}
+.scene--animated.scene--night .scene__track--moon,
+.scene--animated.scene--night .scene__track--moon .scene__lift {
+  transition-delay: calc(var(--scene-duration) * 0.38);
+}
+.scene--animated.scene--night .scene__track--moon {
+  transition-timing-function: ease-in;
+}
+.scene--animated.scene--night .scene__track--moon .scene__lift {
+  transition-timing-function: ease-out;
+}
+/* indo para o dia: lua se põe já, sol nasce depois */
+.scene--animated:not(.scene--night) .scene__track--moon {
+  transition-timing-function: ease-out;
+}
+.scene--animated:not(.scene--night) .scene__track--moon .scene__lift {
+  transition-timing-function: ease-in;
+}
+.scene--animated:not(.scene--night) .scene__track--sun,
+.scene--animated:not(.scene--night) .scene__track--sun .scene__lift {
+  transition-delay: calc(var(--scene-duration) * 0.38);
+}
+.scene--animated:not(.scene--night) .scene__track--sun {
+  transition-timing-function: ease-in;
+}
+.scene--animated:not(.scene--night) .scene__track--sun .scene__lift {
+  transition-timing-function: ease-out;
+}
+
+.scene__sun {
+  --size: 116px;
+  background: radial-gradient(circle, #fff6c9 0 48%, #ffe27a 50%, rgba(255, 226, 122, 0) 72%);
+  box-shadow: 0 0 80px 30px rgba(255, 236, 160, 0.55);
+}
+.scene__track--moon .scene__lift {
+  filter: drop-shadow(0 0 22px rgba(243, 240, 216, 0.45));
+}
+.scene__moon {
+  --size: 100px;
+  background: #f3f0d8;
+  /* crescente recortado por máscara: a "mordida" é transparente de verdade,
+     então não aparece escura contra o céu do entardecer */
+  mask: radial-gradient(circle at 72% 34%, transparent 0 40%, #000 41%);
+}
+
+/* Estado noite */
+.scene--night .scene__sky--night,
+.scene--night .scene__land--night {
+  opacity: 1;
+}
+.scene--night .scene__stars {
+  opacity: 1;
+}
+.scene--night .scene__clouds {
+  opacity: 0;
+}
+.scene--animated.scene--night .scene__stars {
+  transition-delay: calc(var(--scene-duration) * 0.35);
+}
+.scene--animated:not(.scene--night) .scene__clouds {
+  transition-delay: calc(var(--scene-duration) * 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    --scene-duration: 0.4s;
+  }
+  .scene--animated :is(.scene__track, .scene__lift) {
+    transition: none !important;
+  }
+  .scene__dusk {
+    animation: none !important;
+  }
+}

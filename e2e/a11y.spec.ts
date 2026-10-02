@@ -9,6 +9,7 @@ async function scan(page: Page) {
 
 async function waitForGrid(page: Page) {
   await expect(page.locator('app-pokemon-card .card').first()).toBeVisible();
+  await expect(page.locator('app-screen-intro')).toHaveCount(0);
   await page.waitForTimeout(500);
 }
 
@@ -34,6 +35,8 @@ test('diálogo de detalhe não tem violações (aba Sobre e Status)', async ({ p
   expect((await scan(page)).violations).toEqual([]);
 
   await page.getByRole('tab', { name: 'Status' }).click();
-  await expect(page.locator('app-pokemon-detail [role="progressbar"]').first()).toBeVisible();
+  await expect(page.locator('app-stat-hexagon .hex__chart')).toBeVisible();
+  // a tabela acessível espelha os 6 stats + total
+  await expect(page.locator('app-stat-hexagon table tr')).toHaveCount(7);
   expect((await scan(page)).violations).toEqual([]);
 });

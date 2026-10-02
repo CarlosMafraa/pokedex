@@ -1,0 +1,50 @@
+:host {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+}
+.half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: var(--dex-red);
+  transition: transform 0.9s cubic-bezier(0.7, 0, 0.3, 1);
+}
+.half--top {
+  top: 0;
+  border-bottom: 4px solid #1b1b1f;
+}
+.half--bottom {
+  bottom: 0;
+  background: var(--dex-red-dark);
+  border-top: 4px solid #1b1b1f;
+}
+.ball {
+  position: relative;
+  transition:
+    transform 0.5s ease,
+    opacity 0.5s ease;
+}
+:host(.screen-intro--open) {
+  pointer-events: none;
+}
+:host(.screen-intro--open) .half--top {
+  transform: translateY(-100%);
+}
+:host(.screen-intro--open) .half--bottom {
+  transform: translateY(100%);
+}
+:host(.screen-intro--open) .ball {
+  transform: scale(1.5);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .half,
+  .ball {
+    transition-duration: 0.2s;
+  }
+}

@@ -12,7 +12,7 @@
 
 .detail__band {
   position: relative;
-  padding: 1.25rem 1.25rem 3.5rem;
+  padding: 1rem 1.25rem 2.75rem;
   background: linear-gradient(160deg, color-mix(in srgb, var(--band) 82%, #fff), var(--band));
   color: #fff;
   text-align: center;
@@ -69,21 +69,98 @@
   border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
+.detail__art-wrap {
+  position: relative;
+  width: 160px;
+  margin: 0.25rem auto -2.5rem;
+}
 .detail__art {
   display: block;
-  width: 190px;
-  height: 190px;
+  width: 160px;
+  height: 160px;
   object-fit: contain;
-  margin: 0.5rem auto -3rem;
+  opacity: 0;
   filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.3));
+}
+.detail__art-ball {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+/* O Pokémon "sai da pokébola": silhueta branca que cresce e ganha cor. */
+.detail__art--ready {
+  opacity: 1;
+  animation: detail-release 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+@keyframes detail-release {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+    filter: brightness(0) invert(1);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.08);
+    filter: brightness(0) invert(1) drop-shadow(0 0 18px #fff);
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.3));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail__art--ready {
+    animation: none;
+  }
+}
+/* Pixel-art da Gen V ampliada sem borrar; um pouco menor que a arte oficial
+   para não estourar os pixels. */
+.detail__art--animated {
+  padding: 18px;
+  box-sizing: border-box;
+  image-rendering: pixelated;
+}
+
+.detail__animate {
+  position: absolute;
+  right: -3.25rem;
+  bottom: 3.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s ease;
+}
+.detail__animate .pi {
+  font-size: 0.7rem;
+}
+.detail__animate:hover {
+  background: rgba(0, 0, 0, 0.42);
+}
+.detail__animate:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .detail__loading {
-  min-height: 120px;
+  min-height: 200px;
   display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   align-items: center;
   justify-content: center;
   color: #fff;
+  font-weight: 600;
 }
 .detail__loading--error {
   flex-direction: column;
@@ -111,7 +188,7 @@
 }
 
 .detail__body {
-  padding: 3.25rem 1.25rem 1.25rem;
+  padding: 2.5rem 1.25rem 1rem;
 }
 
 .detail__flavor {
@@ -168,29 +245,65 @@
   font-size: 0.8rem;
 }
 
-.detail__stat {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.75rem;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-.detail__stat-value {
-  color: var(--app-text-muted);
-}
-
-.detail__bar {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--app-surface-2);
-  overflow: hidden;
-}
-.detail__bar-fill {
-  height: 100%;
-  border-radius: inherit;
-  transition: width 0.25s ease;
+/* As abas do PrimeNG têm fundo próprio (--p-content-background), que no escuro
+   destoa da superfície do detalhe. */
+:host
+  ::ng-deep
+  :is(.p-tabs, .p-tablist, .p-tablist-content, .p-tablist-tab-list, .p-tabpanels, .p-tabpanel) {
+  background: transparent;
 }
 
 :host ::ng-deep .p-tablist-tab-list {
   justify-content: center;
+}
+
+/* Telas baixas (notebooks 720–768px, celulares pequenos): tudo mais justo para
+   o detalhe caber sem rolagem. */
+@media (max-height: 820px) {
+  .detail__band {
+    padding: 0.6rem 1rem 2.1rem;
+  }
+  .detail__name {
+    margin: 0 0 0.35rem;
+    font-size: 1.25rem;
+  }
+  .detail__art-wrap,
+  .detail__art {
+    width: 118px;
+  }
+  .detail__art {
+    height: 118px;
+  }
+  .detail__art-wrap {
+    margin: 0.15rem auto -1.9rem;
+  }
+  .detail__art--animated {
+    padding: 12px;
+  }
+  .detail__animate {
+    right: -4.5rem;
+    bottom: 2.4rem;
+  }
+  .detail__body {
+    padding: 1.9rem 1rem 0.75rem;
+  }
+  .detail__flavor {
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  .detail__facts {
+    gap: 0.4rem 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+  .detail__facts div {
+    padding: 0.35rem 0.6rem;
+  }
+  .detail__subtitle {
+    margin-bottom: 0.35rem;
+    font-size: 1rem;
+  }
+  :host ::ng-deep app-stat-hexagon .hex__chart {
+    max-width: 236px;
+  }
 }

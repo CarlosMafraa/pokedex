@@ -3,8 +3,10 @@ import { test, expect, Page } from '@playwright/test';
 const firstCard = (page: Page) => page.locator('app-pokemon-card .card').first();
 const searchBox = (page: Page) => page.getByLabel('Buscar Pokémon');
 
+/** Grade pronta para uso: o carregamento da tela já terminou. */
 async function waitForGrid(page: Page) {
   await expect(firstCard(page)).toBeVisible();
+  await expect(page.locator('app-screen-intro')).toHaveCount(0);
 }
 
 const bodyBg = (page: Page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -12,7 +14,9 @@ const htmlClass = (page: Page) => page.evaluate(() => document.documentElement.c
 const pToken = (page: Page, name: string) =>
   page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name);
 
-test('carga inicial é a Geração I (151) com um único request de lista', async ({ page }) => {
+test('carga inicial: um único request com a lista nacional e a aba Geração I aberta', async ({
+  page,
+}) => {
   const listRequests: string[] = [];
   page.on('request', (req) => {
     if (req.url().includes('/api/v2/pokemon?')) {
@@ -25,9 +29,13 @@ test('carga inicial é a Geração I (151) com um único request de lista', asyn
 
   await expect(page.locator('app-pokemon-card')).toHaveCount(151);
   expect(listRequests).toHaveLength(1);
-  expect(listRequests[0]).toContain('limit=151');
+  expect(listRequests[0]).toContain('limit=1025');
   expect(listRequests[0]).toContain('offset=0');
-  await expect(page.getByRole('heading', { name: 'Geração I' })).toBeVisible();
+  await expect(page.locator('.pokedex__gen')).toHaveText('Geração I · #001–#151');
+  await expect(page.getByRole('tab', { name: /Geração I,/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 });
 
 test('busca é ao vivo (sem botão) e o campo tem um único "x" para limpar', async ({ page }) => {
@@ -41,28 +49,24 @@ test('busca é ao vivo (sem botão) e o campo tem um único "x" para limpar', as
   await searchBox(page).fill('gengar');
   await expect(page.locator('app-pokemon-card')).toHaveCount(1);
   await expect(page.locator('.card__name')).toHaveText('Gengar');
-  await expect(page.getByRole('button', { name: /carregar/i })).toBeHidden();
-  // com filtro ativo a grade não é dividida por geração
-  await expect(page.locator('.pokedex__gen')).toHaveCount(0);
+  // a busca por texto vale para todas as gerações
+  await expect(page.locator('.pokedex__gen')).toHaveText('Busca em todas as gerações');
 
   // só um controle de limpar dentro do campo (nada de "x" nativo duplicado)
   await expect(page.locator('.pokedex__search-field .pokedex__clear')).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Limpar busca' }).click();
   await expect(page.locator('app-pokemon-card')).toHaveCount(151);
-  await expect(page.getByRole('button', { name: /carregar/i })).toBeVisible();
+  await expect(page.locator('.pokedex__gen')).toHaveText('Geração I · #001–#151');
 });
 
-test('filtro local por número mostra 1 card, centralizado e sem "carregar mais"', async ({
-  page,
-}) => {
+test('filtro local por número mostra 1 card, centralizado', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
   await searchBox(page).fill('1');
   await expect(page.locator('app-pokemon-card')).toHaveCount(1);
   await expect(page.locator('.card__name')).toHaveText('Bulbasaur');
-  await expect(page.getByRole('button', { name: /carregar/i })).toBeHidden();
 
   // grade centralizada: o card fica aproximadamente no centro horizontal da lista
   const grid = page.locator('.pokedex__grid');
@@ -102,45 +106,94 @@ test('abre o detalhe via card e via deep-link', async ({ page }) => {
   await expect(page.locator('app-pokemon-detail')).toContainText('Status');
   // dados da species (flavor text) chegam e são exibidos
   await expect(page.locator('app-pokemon-detail .detail__flavor')).toBeVisible();
+  // descrição em pt-BR (a PokéAPI só tem em inglês; tradução embutida no app)
+  await expect(page.locator('app-pokemon-detail .detail__flavor')).toContainText(
+    'Foi criado por um cientista',
+  );
   await expect(page.locator('app-pokemon-detail')).toContainText('Geração');
   // altura/peso convertidos de dm/hg para m/kg (Mewtwo: 20 dm / 1220 hg)
   await expect(page.locator('app-pokemon-detail')).toContainText('2.0 m');
   await expect(page.locator('app-pokemon-detail')).toContainText('122.0 kg');
 });
 
-test('hover sem GIF animado (Gen VI+) mantém a arte oficial em vez de imagem quebrada', async ({
-  page,
-}) => {
+test('card mostra só a arte oficial (o GIF fica no detalhe)', async ({ page }) => {
+  const gifRequests: string[] = [];
+  page.on('request', (req) => {
+    if (req.url().endsWith('.gif')) {
+      gifRequests.push(req.url());
+    }
+  });
+
   await page.goto('/');
   await waitForGrid(page);
-
-  // #650 (Chespin) não tem GIF da Gen V no repositório de sprites (404)
-  await searchBox(page).fill('650');
-  await expect(page.locator('app-pokemon-card')).toHaveCount(1);
-  const img = page.locator('app-pokemon-card img');
-  await expect
-    .poll(() => img.evaluate((i) => (i as HTMLImageElement).naturalWidth))
-    .toBeGreaterThan(0);
-
-  await page.locator('app-pokemon-card .card').hover();
-  await expect(img).toHaveAttribute('src', /official-artwork\/650\.png$/);
-  await expect
-    .poll(() => img.evaluate((i) => (i as HTMLImageElement).naturalWidth))
-    .toBeGreaterThan(0);
+  await firstCard(page).hover();
+  await expect(page.locator('app-pokemon-card img').first()).toHaveAttribute(
+    'src',
+    /official-artwork\/1\.png$/,
+  );
+  expect(gifRequests).toHaveLength(0);
 });
 
-test('carregar mais traz a próxima geração, com seu cabeçalho', async ({ page }) => {
+test('status em hexágono com total e GIF no detalhe (funciona sem mouse)', async ({ page }) => {
+  await page.goto('/pokemon/charizard');
+  await expect(page.locator('app-pokemon-detail .detail__name')).toHaveText('Charizard');
+
+  // Charizard tem GIF da Gen V: o botão aparece e alterna arte <-> GIF
+  const art = page.locator('.detail__art');
+  const animate = page.getByRole('button', { name: 'Animar' });
+  await expect(animate).toBeVisible();
+  await animate.click();
+  await expect(art).toHaveAttribute('src', /animated\/6\.gif$/);
+  await page.getByRole('button', { name: 'Ver arte' }).click();
+  await expect(art).toHaveAttribute('src', /official-artwork\/6\.png$/);
+
+  // 78 + 84 + 78 + 109 + 85 + 100
+  await page.getByRole('tab', { name: 'Status' }).click();
+  await expect(page.locator('app-stat-hexagon .hex__total')).toContainText('534');
+  await expect(page.locator('app-stat-hexagon .hex__value')).toHaveCount(6);
+
+  // #650 não tem GIF: o botão não é oferecido
+  await page.goto('/pokemon/chespin');
+  await expect(page.locator('app-pokemon-detail .detail__name')).toHaveText('Chespin');
+  await page.waitForTimeout(1500);
+  await expect(page.getByRole('button', { name: 'Animar' })).toHaveCount(0);
+});
+
+test('abas de geração: troca instantânea, ?gen no endereço e busca em todas', async ({ page }) => {
+  const listRequests: string[] = [];
+  page.on('request', (req) => {
+    if (req.url().includes('/api/v2/pokemon?')) {
+      listRequests.push(req.url());
+    }
+  });
   await page.goto('/');
   await waitForGrid(page);
-  await expect(page.locator('app-pokemon-card')).toHaveCount(151);
-  await expect(page.getByRole('heading', { name: 'Geração II' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: /carregar geração ii/i }).click();
+  // Geração III: #252–#386 (135 Pokémon), sem nova requisição de lista
+  await page.getByRole('tab', { name: /Geração III,/ }).click();
+  await expect(page.locator('app-pokemon-card')).toHaveCount(135);
+  await expect(page.locator('.card__name').first()).toHaveText('Treecko');
+  await expect(page).toHaveURL(/[?&]gen=3/);
+  expect(listRequests).toHaveLength(1);
 
-  // Gen I (151) + Gen II (100)
-  await expect(page.locator('app-pokemon-card')).toHaveCount(251);
-  await expect(page.getByRole('heading', { name: 'Geração II' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /carregar geração iii/i })).toBeVisible();
+  // teclado: seta para a direita vai para a Geração IV
+  await page.getByRole('tab', { name: /Geração III,/ }).press('ArrowRight');
+  await expect(page.getByRole('tab', { name: /Geração IV,/ })).toBeFocused();
+  await expect(page.locator('.card__name').first()).toHaveText('Turtwig');
+
+  // a busca acha Pokémon de outra geração mesmo com a aba IV aberta
+  await searchBox(page).fill('pikach');
+  await expect(page.locator('.card__name')).toHaveText(['Pikachu']);
+  await searchBox(page).fill('');
+
+  // abrir e fechar um detalhe mantém a aba; F5 também
+  await firstCard(page).click();
+  await expect(page).toHaveURL(/\/pokemon\/turtwig\?gen=4/);
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/\/\?gen=4$/);
+  await page.reload();
+  await waitForGrid(page);
+  await expect(page.locator('.pokedex__gen')).toHaveText('Geração IV · #387–#493');
 });
 
 test('dark mode: alterna tema do app e do PrimeNG e persiste após reload', async ({ page }) => {
@@ -191,4 +244,13 @@ test('dark mode: alterna tema do app e do PrimeNG e persiste após reload', asyn
   await waitForGrid(page);
   expect(await htmlClass(page)).not.toContain('app-dark');
   await expect.poll(() => bodyBg(page)).toBe(LIGHT_BG);
+});
+
+test('carregamento só na tela da Pokédex: pokébola e depois a grade', async ({ page }) => {
+  await page.goto('/');
+  // o resto da página (carcaça, busca) já aparece; só a tela mostra a pokébola
+  await expect(page.getByLabel('Buscar Pokémon')).toBeVisible();
+  await expect(page.locator('.pokedex__results app-screen-intro')).toHaveCount(1);
+  await expect(page.locator('app-screen-intro')).toHaveCount(0, { timeout: 8000 });
+  await expect(page.locator('app-pokemon-card')).toHaveCount(151);
 });

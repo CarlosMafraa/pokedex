@@ -36,10 +36,17 @@ describe('PokemonDetailComponent', () => {
     expect(TestBed.inject(PokemonStore).select).toHaveBeenCalledWith('pikachu');
   });
 
-  it('statPercent nunca passa de 100', () => {
-    expect(fixture.componentInstance.statPercent(255)).toBe(100);
-    expect(fixture.componentInstance.statPercent(300)).toBe(100);
-    expect(fixture.componentInstance.statPercent(0)).toBe(0);
+  it('alterna entre arte e GIF, e volta para a arte se o GIF falhar', () => {
+    const c = fixture.componentInstance;
+    expect(c.showAnimated()).toBe(false);
+
+    c.toggleAnimated();
+    expect(c.showAnimated()).toBe(true);
+
+    c.hasAnimated.set(true);
+    c.onAnimatedError();
+    expect(c.showAnimated()).toBe(false);
+    expect(c.hasAnimated()).toBe(false);
   });
 
   it('converte altura e peso de dm/hg para m/kg', () => {

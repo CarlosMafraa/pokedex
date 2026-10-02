@@ -8,6 +8,5 @@ export interface PokemonListEntry {
   id: number;
   name: string;
   artworkUrl: string;
-  animatedSpriteUrl: string;
   types?: string[];
 }

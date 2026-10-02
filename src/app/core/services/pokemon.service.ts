@@ -47,6 +47,28 @@ export class PokemonService {
   private readonly http = inject(HttpClient);
   private readonly cache = inject(CacheService);
 
+  /**
+   * Descrições da Pokédex em pt-BR. A PokéAPI não tem esses textos em português,
+   * então eles foram traduzidos e embutidos no app (um JSON por id nacional,
+   * carregado uma única vez, na primeira abertura de um detalhe).
+   */
+  private flavorPtBr?: Promise<Record<string, string>>;
+
+  public async getFlavorTextPtBr(id: number): Promise<string | null> {
+    this.flavorPtBr ??= lastValueFrom(
+      this.http.get<Record<string, string>>('assets/i18n/flavor-pt-br.json'),
+    ).catch((error: unknown) => {
+      // falhou (offline?): esquece a promessa para tentar de novo no próximo detalhe
+      this.flavorPtBr = undefined;
+      throw error;
+    });
+    try {
+      return (await this.flavorPtBr)[id] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   public artworkUrl(id: number): string {
     return `${environment.artworkBaseUrl}/${id}.png`;
   }
@@ -71,7 +93,6 @@ export class PokemonService {
             id,
             name: item.name,
             artworkUrl: this.artworkUrl(id),
-            animatedSpriteUrl: this.animatedSpriteUrl(id),
           };
         })
         .filter((entry) => Number.isFinite(entry.id)),
