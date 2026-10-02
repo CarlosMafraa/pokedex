@@ -180,9 +180,23 @@
 }
 
 /* Durante o carregamento a tela reserva altura para a pokébola. */
-.pokedex__results--intro {
-  min-height: min(70vh, 640px);
+/* Carregando (sem conteúdo): a Pokédex tem exatamente a altura da janela e a
+   tela estica para preencher o que sobra. Ao terminar, ela cresce até o
+   tamanho da grade (animação no componente). */
+.pokedex--intro {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 2rem);
+  margin-bottom: 1rem;
+}
+.pokedex--intro :is(.pokedex__screen-frame, .pokedex__results) {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
+}
+.pokedex--intro .pokedex__screen-frame {
+  display: flex;
+  flex-direction: column;
 }
 
 /* Cards entram em sequência enquanto a tela se abre (só os primeiros esperam). */
@@ -234,6 +248,9 @@
     margin: 0;
     border-radius: 0;
   }
+  .pokedex--intro {
+    height: 100dvh;
+  }
   .pokedex__header {
     grid-template-columns: auto 1fr auto;
     padding: 0.75rem 0.75rem 1.4rem;
@@ -263,16 +280,6 @@
   .pokedex__results {
     padding: 0.75rem 0.4rem 1.25rem;
   }
-}
-
-/* Abas de geração: grudam no topo ao rolar, sobre a carcaça vermelha. */
-.pokedex__gens {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  padding: 0.5rem 1.25rem 0.35rem;
-  margin-bottom: 0.75rem;
-  background: var(--dex-red);
 }
 
 .pokedex__search {

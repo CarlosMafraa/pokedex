@@ -1,5 +1,12 @@
 :host {
   display: block;
+  /* Grudam no topo ao rolar a grade, sobre a carcaça vermelha. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 0.5rem 1.25rem 0.35rem;
+  margin-bottom: 0.75rem;
+  background: var(--dex-red);
 }
 
 /* Fileira de botões físicos do aparelho; no celular rola de lado. */

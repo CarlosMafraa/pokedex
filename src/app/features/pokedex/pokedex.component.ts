@@ -1,11 +1,15 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   effect,
+  ElementRef,
   inject,
+  Injector,
   OnInit,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterOutlet } from '@angular/router';
@@ -28,6 +32,8 @@ import { POKEMON_TYPES, POKEMON_TYPE_LABELS } from '@core/models/constants/pokem
 const INTRO_MIN_MS = 900;
 /** Duração das metades da tela se abrindo (ver ScreenIntroComponent). */
 const INTRO_OPEN_MS = 900;
+/** Duração da tela esticando/encolhendo (fim do carregamento e troca de aba). */
+const SCREEN_RESIZE_MS = 800;
 /** Quanto tempo os cards ficam entrando em sequência depois de trocar de aba. */
 const TAB_REVEAL_MS = 900;
 
@@ -57,6 +63,8 @@ export class PokedexComponent implements OnInit {
   private readonly messages = inject(MessageService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly injector = inject(Injector);
+  private readonly results = viewChild<ElementRef<HTMLElement>>('results');
 
   /** Cards entrando em sequência logo após trocar de aba. */
   readonly tabReveal = signal(false);
@@ -105,7 +113,7 @@ export class PokedexComponent implements OnInit {
       const wait = Math.max(0, INTRO_MIN_MS - (performance.now() - startedAt));
       setTimeout(() => {
         this.intro.set('opening');
-        setTimeout(() => this.intro.set('done'), INTRO_OPEN_MS);
+        setTimeout(() => this.growScreen(), INTRO_OPEN_MS);
       }, wait);
     });
 
@@ -141,11 +149,59 @@ export class PokedexComponent implements OnInit {
     }
   }
 
+  /** Fim do carregamento: a Pokédex sai da altura da janela e estica até a grade. */
+  private growScreen(): void {
+    this.resizeScreenSmoothly(() => this.intro.set('done'));
+  }
+
+  /**
+   * Aplica `change` (que muda o conteúdo da tela) e anima a altura da tela do
+   * tamanho antigo até o novo. CSS não anima até `height: auto`, então medimos
+   * antes e depois. Só o trecho visível é animado: a grade pode ter milhares de
+   * pixels, e animar tudo faria a borda de baixo sumir da tela em milissegundos
+   * — o usuário não veria nada. Então a borda anda só o necessário para o
+   * rodapé da tela sair de vista, devagar; o resto acontece fora da vista.
+   */
+  private resizeScreenSmoothly(change: () => void): void {
+    const el = this.results()?.nativeElement;
+    const from = el?.offsetHeight ?? 0;
+    change();
+    if (
+      !el ||
+      typeof el.animate !== 'function' ||
+      matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+    afterNextRender(
+      () => {
+        const to = el.offsetHeight;
+        if (Math.abs(to - from) < 2) {
+          return;
+        }
+        // Quanto a borda de baixo precisa andar até o rodapé da tela sair de vista
+        // (com um mínimo, para a troca de aba no meio da grade também ter folga).
+        const bottom = el.getBoundingClientRect().top + from;
+        const span = Math.max(160, window.innerHeight - bottom + 70);
+        const start = to > from ? from : Math.min(from, to + span);
+        const end = to > from ? Math.min(to, from + span) : to;
+        el.animate(
+          [
+            { height: `${start}px`, overflow: 'hidden' },
+            { height: `${end}px`, overflow: 'hidden' },
+          ],
+          { duration: SCREEN_RESIZE_MS, easing: 'cubic-bezier(0.45, 0, 0.25, 1)' },
+        );
+      },
+      { injector: this.injector },
+    );
+  }
+
   selectGeneration(index: number): void {
     if (index === this.store.genIndex()) {
       return;
     }
-    this.store.setGeneration(index);
+    this.resizeScreenSmoothly(() => this.store.setGeneration(index));
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { gen: index + 1 },

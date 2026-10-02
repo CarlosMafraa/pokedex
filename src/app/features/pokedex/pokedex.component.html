@@ -1,4 +1,4 @@
-<div class="pokedex">
+<div class="pokedex" [class.pokedex--intro]="intro() !== 'done'">
   <header class="pokedex__header">
     <div class="pokedex__lights" aria-hidden="true">
       <span class="pokedex__lens"></span>
@@ -70,7 +70,6 @@
   </form>
 
   <app-generation-tabs
-    class="pokedex__gens"
     [selected]="store.genIndex()"
     [dimmed]="store.searchingAllGenerations()"
     panelId="pokedex-panel"
@@ -80,9 +79,9 @@
   <div class="pokedex__screen-frame">
     <span class="pokedex__screen-dots" aria-hidden="true"><span></span><span></span></span>
     <main
+      #results
       id="pokedex-panel"
       class="pokedex__results"
-      [class.pokedex__results--intro]="intro() !== 'done'"
       role="tabpanel"
       [attr.aria-labelledby]="'gen-tab-' + store.genIndex()"
     >

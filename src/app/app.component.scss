@@ -1,4 +1,6 @@
 :host {
-  display: block;
+  /* flow-root: a margem de cima da Pokédex não "vaza" para fora do app-root
+     (sem isso, somada ao min-height, sobravam 16px de rolagem). */
+  display: flow-root;
   min-height: 100dvh;
 }
