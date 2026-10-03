@@ -12,10 +12,17 @@
 }
 :host ::ng-deep .detail-dialog--sheet {
   margin: 0 !important;
+  /* Altura fixa: trocar Sobre ↔ Status (ou de Pokémon) não muda o tamanho do
+     painel; o espaço que sobra vai para a arte (Sobre) ou o hexágono (Status). */
+  height: min(88dvh, 700px);
   max-height: 92dvh;
   border-radius: 20px 20px 0 0;
 }
 :host ::ng-deep .detail-dialog--sheet .pokemon-detail__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -26,6 +33,29 @@
   background: var(--app-surface);
   color: var(--app-text);
 }
+.detail:not(.detail--wide) {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.detail:not(.detail--wide) .detail__hero,
+.detail:not(.detail--wide) .detail__state {
+  flex: 1 0 auto;
+}
+/* Aba Status: a arte fica pequena e quem ocupa a sobra é o hexágono. */
+.detail--compact .detail__hero {
+  flex-grow: 0;
+}
+.detail--compact .detail__info {
+  flex: 1 0 auto;
+}
+.detail--compact .detail__stats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .detail--wide {
   display: grid;
   grid-template-columns: 290px 1fr;

@@ -157,11 +157,18 @@ test('status em hexágono com total e GIF no detalhe (funciona sem mouse)', asyn
   // celular: painel de baixo; setas trocam entre Sobre e Status
   await page.setViewportSize({ width: 390, height: 844 });
   const sobre = page.getByRole('tab', { name: 'Sobre' });
+  const sheetHeight = () =>
+    page.evaluate(() =>
+      Math.round(document.querySelector('.p-dialog')!.getBoundingClientRect().height),
+    );
+  const heightOnSobre = await sheetHeight();
   await sobre.focus();
   await sobre.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Status' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('app-stat-hexagon .hex__total')).toContainText('534');
   await expect(page.locator('.detail__flavor')).toHaveCount(0);
+  // o painel tem altura fixa: trocar de aba não o faz crescer nem encolher
+  await expect.poll(sheetHeight).toBe(heightOnSobre);
   await page.setViewportSize({ width: 1280, height: 720 });
 
   // #650 não tem GIF: o botão não é oferecido

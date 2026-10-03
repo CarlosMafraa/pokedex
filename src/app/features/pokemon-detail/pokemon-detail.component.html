@@ -97,7 +97,7 @@
                 [attr.aria-selected]="activeTab() === tab.value"
                 [attr.aria-controls]="'detail-panel-' + tab.value"
                 [attr.tabindex]="activeTab() === tab.value ? 0 : -1"
-                (click)="activeTab.set(tab.value)"
+                (click)="selectTab(tab.value)"
                 (keydown)="onSegmentKeydown($event)"
               >
                 {{ tab.label }}

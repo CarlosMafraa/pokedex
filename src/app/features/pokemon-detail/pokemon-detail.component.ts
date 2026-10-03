@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
@@ -7,6 +8,7 @@ import {
   effect,
   ElementRef,
   inject,
+  Injector,
   OnDestroy,
   signal,
   viewChild,
@@ -40,14 +42,13 @@ type DetailTab = 'sobre' | 'status';
 
 /** A partir desta largura o detalhe vira cartão em duas colunas. */
 const WIDE_QUERY = typeof matchMedia === 'function' ? '(min-width: 760px)' : null;
-/** Tamanhos normais e mínimos ao encaixar o detalhe na tela (ver fitToViewport). */
-const DEFAULT_ART_PX = 150;
+/** Duração da troca animada entre Sobre e Status no painel do celular. */
+const TAB_ANIM_MS = 320;
+const TAB_ANIM_EASING = 'cubic-bezier(0.3, 0, 0.2, 1)';
+
+/** Menores tamanhos aceitos ao encaixar o detalhe na tela (ver fitToViewport). */
 const MIN_ART_PX = 64;
-const DEFAULT_HEX_PX = 290;
-const DEFAULT_HEX_WIDE_PX = 260;
 const MIN_HEX_PX = 150;
-/** Só volta a crescer com pelo menos esta folga (evita oscilar por 1px). */
-const FIT_SLACK_PX = 8;
 /** Altura do hexágono em relação à largura (viewBox 320×290 + linha do total). */
 const HEX_HEIGHT_RATIO = 0.95;
 
@@ -92,6 +93,20 @@ export class PokemonDetailComponent implements OnDestroy {
   readonly wide = signal(WIDE_QUERY ? matchMedia(WIDE_QUERY).matches : true);
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+
+  /** Encaixe na tela agendado para o próximo frame (ver fitToViewport). */
+  private fitFrame = 0;
+  /** Durante a troca animada de aba o encaixe espera (mediria tamanhos intermediários). */
+  private tabAnimating = false;
+  private readonly scheduleFit = () => {
+    cancelAnimationFrame(this.fitFrame);
+    this.fitFrame = requestAnimationFrame(() => {
+      if (!this.tabAnimating) {
+        this.fitToViewport();
+      }
+    });
+  };
 
   /** Arrastar o puxador do painel para baixo fecha o detalhe. */
   private drag: { startY: number; sheet: HTMLElement } | null = null;
@@ -179,33 +194,27 @@ export class PokemonDetailComponent implements OnDestroy {
 
     // Encaixa o detalhe na tela sempre que o tamanho real do conteúdo muda
     // (texto chegando, fonte carregando, troca de aba) ou a janela muda.
-    let frame = 0;
-    const scheduleFit = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => this.fitToViewport());
-    };
+    const scheduleFit = this.scheduleFit;
     const observer = new ResizeObserver(scheduleFit);
-    let observed: Element | null = null;
+    let observed: Element[] = [];
     afterRenderEffect(() => {
       this.pokemon();
       this.activeTab();
       this.wide();
-      const detail = this.host.nativeElement.querySelector('.detail');
-      if (detail !== observed) {
-        if (observed) {
-          observer.unobserve(observed);
-        }
-        if (detail) {
-          observer.observe(detail);
-        }
-        observed = detail;
+      const targets = Array.from(
+        this.host.nativeElement.querySelectorAll('.detail, .detail__info'),
+      );
+      if (targets.some((el, i) => el !== observed[i]) || targets.length !== observed.length) {
+        observer.disconnect();
+        targets.forEach((el) => observer.observe(el));
+        observed = targets;
       }
       scheduleFit();
     });
     window.addEventListener('resize', scheduleFit);
     inject(DestroyRef).onDestroy(() => {
       observer.disconnect();
-      cancelAnimationFrame(frame);
+      cancelAnimationFrame(this.fitFrame);
       window.removeEventListener('resize', scheduleFit);
     });
 
@@ -264,11 +273,10 @@ export class PokemonDetailComponent implements OnDestroy {
   }
 
   /**
-   * O detalhe não deve rolar. Mede quanto o conteúdo passa (ou sobra) do espaço
-   * e ajusta, a partir do tamanho atual: primeiro a arte (só no painel do
-   * celular, na aba Sobre, onde ela fica em cima do texto) e depois o hexágono,
-   * respeitando os mínimos. Com folga, os dois voltam a crescer até o normal.
-   * Roda a cada mudança de tamanho do conteúdo, então converge sozinho.
+   * O detalhe não deve rolar. Zera os ajustes, mede quanto o conteúdo natural
+   * passa do espaço e encolhe primeiro a arte (só no painel do celular, na aba
+   * Sobre) e depois o hexágono, até os mínimos. É idempotente: rodar de novo
+   * com o mesmo conteúdo dá o mesmo resultado, então o ResizeObserver para.
    */
   private fitToViewport(): void {
     const root = this.host.nativeElement;
@@ -277,47 +285,28 @@ export class PokemonDetailComponent implements OnDestroy {
     if (!content || !detail) {
       return;
     }
-    // > 0: passou do espaço (rolaria); < 0: sobrou espaço
-    let over = detail.offsetHeight - content.clientHeight;
-    const grow = over < -FIT_SLACK_PX;
-    if (over <= 0 && !grow) {
+    detail.style.removeProperty('--art-size');
+    detail.style.removeProperty('--hex-width');
+    let over = content.scrollHeight - content.clientHeight;
+    if (over <= 0) {
       return;
     }
 
-    if (!this.wide() && this.activeTab() === 'sobre') {
-      over = this.fitVar(detail, '--art-size', DEFAULT_ART_PX, MIN_ART_PX, over, 1);
+    const art = root.querySelector<HTMLElement>('.detail__art-wrap');
+    if (art && !this.wide() && this.activeTab() === 'sobre') {
+      const current = art.offsetHeight;
+      const next = Math.max(MIN_ART_PX, current - over);
+      detail.style.setProperty('--art-size', `${next}px`);
+      over -= current - next;
     }
-    const hex = root.querySelector<SVGSVGElement>('app-stat-hexagon .hex__chart');
-    if (hex && (over > 0 || grow)) {
-      // <svg> não tem offsetWidth; o retângulo do svg não sofre a animação
-      const max = this.wide() ? DEFAULT_HEX_WIDE_PX : DEFAULT_HEX_PX;
-      this.fitVar(detail, '--hex-width', max, MIN_HEX_PX, over, HEX_HEIGHT_RATIO, hex);
-    }
-  }
 
-  /**
-   * Ajusta uma variável de tamanho (px) em `detail` para absorver `over` px de
-   * altura; `ratio` = altura ganha/perdida por px de tamanho. Devolve o que
-   * ainda sobra (ou falta) depois do ajuste.
-   */
-  private fitVar(
-    detail: HTMLElement,
-    name: string,
-    max: number,
-    min: number,
-    over: number,
-    ratio: number,
-    measured?: Element,
-  ): number {
-    const set = parseFloat(detail.style.getPropertyValue(name));
-    const current = set || Math.min(max, measured?.getBoundingClientRect().width ?? max);
-    const next = Math.max(min, Math.min(max, Math.floor(current - over / ratio)));
-    if (next >= max) {
-      detail.style.removeProperty(name);
-    } else if (next !== set) {
-      detail.style.setProperty(name, `${next}px`);
+    // <svg> não tem offsetWidth; o retângulo do svg não sofre a animação
+    const hex = root.querySelector<SVGSVGElement>('app-stat-hexagon .hex__chart');
+    if (over > 0 && hex) {
+      const width = hex.getBoundingClientRect().width;
+      const next = Math.max(MIN_HEX_PX, Math.floor(width - over / HEX_HEIGHT_RATIO) - 2);
+      detail.style.setProperty('--hex-width', `${next}px`);
     }
-    return over - (current - next) * ratio;
   }
 
   /** Setas trocam entre Sobre e Status (padrão WAI-ARIA de tabs). */
@@ -327,8 +316,74 @@ export class PokemonDetailComponent implements OnDestroy {
     }
     event.preventDefault();
     const next: DetailTab = this.activeTab() === 'sobre' ? 'status' : 'sobre';
-    this.activeTab.set(next);
+    this.selectTab(next);
     document.getElementById(`detail-tab-${next}`)?.focus();
+  }
+
+  /**
+   * Troca Sobre ↔ Status com transição: a área da arte anima a altura, a arte
+   * escala do tamanho antigo para o novo (FLIP: o layout já é o final, a
+   * animação é só visual) e o conteúdo novo entra com fade. O encaixe na tela
+   * roda antes, sobre o layout final, e fica pausado durante a animação.
+   */
+  selectTab(next: DetailTab): void {
+    if (next === this.activeTab()) {
+      return;
+    }
+    const root = this.host.nativeElement;
+    const hero = root.querySelector<HTMLElement>('.detail__hero');
+    const art = root.querySelector<HTMLElement>('.detail__art-wrap');
+    const animate =
+      !this.wide() &&
+      !!hero &&
+      !!art &&
+      typeof hero.animate === 'function' &&
+      !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!animate) {
+      this.activeTab.set(next);
+      return;
+    }
+
+    const heroFrom = hero.getBoundingClientRect().height;
+    const artFrom = art.offsetHeight;
+    this.tabAnimating = true;
+    this.activeTab.set(next);
+
+    afterNextRender(
+      () => {
+        this.fitToViewport(); // layout final antes de animar
+        const heroTo = hero.getBoundingClientRect().height;
+        const artTo = art.offsetHeight;
+        const options = { duration: TAB_ANIM_MS, easing: TAB_ANIM_EASING };
+
+        // altura da área da arte (sem crescer pelo flex enquanto anima)
+        const heroAnim = hero.animate(
+          [
+            { height: `${heroFrom}px`, flexGrow: 0, overflow: 'hidden' },
+            { height: `${heroTo}px`, flexGrow: 0, overflow: 'hidden' },
+          ],
+          options,
+        );
+        // a arte acompanha o centro da área sozinha; aqui só o tamanho
+        if (artTo > 0 && artFrom !== artTo) {
+          art.animate([{ transform: `scale(${artFrom / artTo})` }, { transform: 'none' }], options);
+        }
+        root.querySelector(next === 'sobre' ? '.detail__about' : '.detail__stats')?.animate(
+          [
+            { opacity: 0, transform: 'translateY(8px)' },
+            { opacity: 1, transform: 'none' },
+          ],
+          options,
+        );
+
+        const done = () => {
+          this.tabAnimating = false;
+          this.scheduleFit();
+        };
+        heroAnim.finished.then(done, done);
+      },
+      { injector: this.injector },
+    );
   }
 
   onHandleDown(event: PointerEvent): void {
