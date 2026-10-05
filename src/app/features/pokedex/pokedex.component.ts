@@ -29,15 +29,33 @@ import { PokemonCardComponent } from '@features/pokemon-card/pokemon-card.compon
 import { POKEMON_TYPES, POKEMON_TYPE_LABELS } from '@core/models/constants/pokemon-types';
 
 /** Tempo mínimo da pokébola na tela, para a animação ser vista mesmo com cache. */
-const INTRO_MIN_MS = 900;
+const INTRO_MIN_MS = 500;
 /** Duração das metades da tela se abrindo (ver ScreenIntroComponent). */
 const INTRO_OPEN_MS = 900;
+/** Quantos cards (os primeiros da tela) precisam ter a arte pronta antes de abrir. */
+const INTRO_PRELOAD_CARDS = 15;
+/** Limite da espera pelas artes: rede lenta não segura a tela fechada para sempre. */
+const INTRO_PRELOAD_TIMEOUT_MS = 3000;
 /** Duração da tela esticando/encolhendo (fim do carregamento e troca de aba). */
 const SCREEN_RESIZE_MS = 800;
 /** Quanto tempo os cards ficam entrando em sequência depois de trocar de aba. */
 const TAB_REVEAL_MS = 900;
 
 const pad = (n: number) => String(n).padStart(3, '0');
+
+/** Resolve quando todas as imagens carregarem (ou falharem), ou no tempo limite. */
+function preloadImages(urls: string[], timeoutMs: number): Promise<void> {
+  const loads = urls.map(
+    (url) =>
+      new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = img.onerror = () => resolve();
+        img.src = url;
+      }),
+  );
+  const limit = new Promise<void>((resolve) => setTimeout(resolve, timeoutMs));
+  return Promise.race([Promise.all(loads).then(() => undefined), limit]);
+}
 
 @Component({
   selector: 'app-pokedex',
@@ -110,11 +128,19 @@ export class PokedexComponent implements OnInit {
         return;
       }
       scheduled = true;
-      const wait = Math.max(0, INTRO_MIN_MS - (performance.now() - startedAt));
-      setTimeout(() => {
-        this.intro.set('opening');
-        setTimeout(() => this.growScreen(), INTRO_OPEN_MS);
-      }, wait);
+      // Abre só com os primeiros cards prontos: tipos (cores) já vieram com a
+      // lista; falta a arte. Pré-carrega as miniaturas e espera (com limite).
+      const urls = this.store
+        .visibleEntries()
+        .slice(0, INTRO_PRELOAD_CARDS)
+        .map((entry) => entry.thumbnailUrl);
+      void preloadImages(urls, INTRO_PRELOAD_TIMEOUT_MS).then(() => {
+        const wait = Math.max(0, INTRO_MIN_MS - (performance.now() - startedAt));
+        setTimeout(() => {
+          this.intro.set('opening');
+          setTimeout(() => this.growScreen(), INTRO_OPEN_MS);
+        }, wait);
+      });
     });
 
     this.typing$.pipe(debounceTime(350), takeUntilDestroyed()).subscribe((value) => {

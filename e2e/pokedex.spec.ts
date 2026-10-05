@@ -116,9 +116,16 @@ test('abre o detalhe via card e via deep-link', async ({ page }) => {
   await expect(page.locator('app-pokemon-detail')).toContainText('122.0 kg');
 });
 
-test('card mostra só a arte oficial (o GIF fica no detalhe)', async ({ page }) => {
+test('grade leve: cards abrem com cor e miniatura, sem ficha por Pokémon nem GIF', async ({
+  page,
+}) => {
+  const detailRequests: string[] = [];
   const gifRequests: string[] = [];
   page.on('request', (req) => {
+    // ficha completa (/pokemon/{id}): ~280 KB cada; antes era 1 por card só pela cor
+    if (/\/api\/v2\/pokemon\/\d+\/?$/.test(req.url())) {
+      detailRequests.push(req.url());
+    }
     if (req.url().endsWith('.gif')) {
       gifRequests.push(req.url());
     }
@@ -126,11 +133,16 @@ test('card mostra só a arte oficial (o GIF fica no detalhe)', async ({ page }) 
 
   await page.goto('/');
   await waitForGrid(page);
-  await firstCard(page).hover();
-  await expect(page.locator('app-pokemon-card img').first()).toHaveAttribute(
-    'src',
-    /official-artwork\/1\.png$/,
-  );
+
+  // a tela só abre com o primeiro card já colorido e com a arte carregada
+  const first = page.locator('app-pokemon-card .card').first();
+  await expect(first).toHaveClass(/type-grass/);
+  const img = first.locator('img');
+  await expect(img).toHaveAttribute('src', /wsrv\.nl\/.*official-artwork%2F1\.png.*output=webp/);
+  expect(await img.evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+  await first.hover();
+  expect(detailRequests).toHaveLength(0);
   expect(gifRequests).toHaveLength(0);
 });
 
@@ -141,7 +153,8 @@ test('status em hexágono com total e GIF no detalhe (funciona sem mouse)', asyn
   // Charizard tem GIF da Gen V: o botão aparece e alterna arte <-> GIF
   const art = page.locator('.detail__art');
   const animate = page.getByRole('button', { name: 'Animar' });
-  await expect(animate).toBeVisible();
+  // folga extra: na 1ª vez o jsDelivr busca o GIF no GitHub antes de cachear
+  await expect(animate).toBeVisible({ timeout: 25_000 });
   await animate.click();
   await expect(art).toHaveAttribute('src', /animated\/6\.gif$/);
   await page.getByRole('button', { name: 'Ver arte' }).click();

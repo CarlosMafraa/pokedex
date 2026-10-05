@@ -5,7 +5,7 @@ import { PokemonService } from './pokemon.service';
 import { PokemonListEntry } from '@core/models/pokemon-list-entry';
 
 function entry(id: number, name: string, types?: string[]): PokemonListEntry {
-  return { id, name, artworkUrl: `${id}.png`, types };
+  return { id, name, artworkUrl: `${id}.png`, thumbnailUrl: `${id}.webp`, types };
 }
 
 /** Deixa a IIFE assíncrona de setTypeFilters resolver por completo. */
@@ -22,8 +22,12 @@ describe('PokemonStore', () => {
       'getSpecies',
       'getTypeMemberIds',
       'artworkUrl',
+      'thumbnailUrl',
+      'getTypesMap',
     ]);
     api.artworkUrl.and.callFake((id) => `${id}.png`);
+    api.thumbnailUrl.and.callFake((id) => `${id}.webp`);
+    api.getTypesMap.and.resolveTo({});
     api.getTypeMemberIds.and.resolveTo(new Set<number>());
 
     TestBed.configureTestingModule({
@@ -50,6 +54,31 @@ describe('PokemonStore', () => {
     await loaded();
     expect(api.getPage).toHaveBeenCalledOnceWith(1025, 0);
     expect(store.entries().length).toBe(5);
+  });
+
+  it('loadAll aplica os tipos do mapa embutido (cores dos cards sem requisição)', async () => {
+    api.getTypesMap.and.resolveTo({ '25': 'electric', '6': 'fire,flying' });
+    api.getPage.and.resolveTo({
+      total: 1025,
+      entries: [entry(6, 'charizard'), entry(25, 'pikachu'), entry(9999, 'sem-tipo')],
+    });
+    await store.loadAll();
+
+    expect(store.entries().map((e) => e.types)).toEqual([
+      ['fire', 'flying'],
+      ['electric'],
+      undefined,
+    ]);
+    expect(api.getDetails).not.toHaveBeenCalled();
+  });
+
+  it('se o mapa de tipos falhar, a lista abre mesmo assim (cards neutros)', async () => {
+    api.getTypesMap.and.rejectWith(new Error('offline'));
+    api.getPage.and.resolveTo({ total: 1025, entries: [entry(25, 'pikachu')] });
+    await store.loadAll();
+
+    expect(store.error()).toBeNull();
+    expect(store.entries()[0].types).toBeUndefined();
   });
 
   it('a aba de geração filtra por faixa de número, sem nova requisição', async () => {

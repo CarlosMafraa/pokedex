@@ -42,7 +42,17 @@
 .ball--wobble {
   animation: ball-wobble 1.4s ease-in-out infinite;
 }
-.ball--wobble .ball__button {
+/* Luz do botão numa camada própria: anima só opacity (composto pela GPU). */
+.ball__button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff 0 40%, #ffe9a8 41%);
+  box-shadow: 0 0 calc(var(--size) * 0.12) #ffe17a;
+  opacity: 0;
+}
+.ball--wobble .ball__button::after {
   animation: ball-blink 1.4s ease-in-out infinite;
 }
 @keyframes ball-wobble {
@@ -67,14 +77,13 @@
 @keyframes ball-blink {
   60%,
   70% {
-    background: radial-gradient(circle at 40% 35%, #fff 0 40%, #ffe9a8 41%);
-    box-shadow: 0 0 calc(var(--size) * 0.12) #ffe17a;
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ball--wobble,
-  .ball--wobble .ball__button {
+  .ball--wobble .ball__button::after {
     animation: none;
   }
 }

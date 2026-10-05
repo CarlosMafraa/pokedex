@@ -69,6 +69,29 @@ export class PokemonService {
     }
   }
 
+  /**
+   * Tipos de toda a Pokédex nacional (id → "grass,poison"), embutidos no app.
+   * Antes cada card baixava a ficha completa do Pokémon (~280 KB) só para
+   * saber a cor de fundo; agora é um JSON de ~18 KB carregado uma vez.
+   */
+  private typesMap?: Promise<Record<string, string>>;
+
+  public async getTypesMap(): Promise<Record<string, string>> {
+    this.typesMap ??= lastValueFrom(
+      this.http.get<Record<string, string>>('assets/data/pokemon-types.json'),
+    ).catch((error: unknown) => {
+      this.typesMap = undefined;
+      throw error;
+    });
+    return this.typesMap;
+  }
+
+  /** Miniatura do card: a arte oficial reduzida e em WebP (ver environment). */
+  public thumbnailUrl(id: number): string {
+    const source = this.artworkUrl(id).replace(/^https:\/\//, '');
+    return `${environment.thumbnailProxyUrl}?url=${encodeURIComponent(source)}&w=192&output=webp`;
+  }
+
   public artworkUrl(id: number): string {
     return `${environment.artworkBaseUrl}/${id}.png`;
   }
@@ -93,6 +116,7 @@ export class PokemonService {
             id,
             name: item.name,
             artworkUrl: this.artworkUrl(id),
+            thumbnailUrl: this.thumbnailUrl(id),
           };
         })
         .filter((entry) => Number.isFinite(entry.id)),

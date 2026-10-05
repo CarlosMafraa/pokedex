@@ -8,7 +8,7 @@
     </div>
     <h1 class="pokedex__title">
       <img
-        ngSrc="assets/image/pokedex.png"
+        ngSrc="assets/image/pokedex.webp"
         width="260"
         height="77"
         priority
@@ -78,39 +78,44 @@
 
   <div class="pokedex__screen-frame">
     <span class="pokedex__screen-dots" aria-hidden="true"><span></span><span></span></span>
-    <main
-      #results
-      id="pokedex-panel"
-      class="pokedex__results"
-      role="tabpanel"
-      [attr.aria-labelledby]="'gen-tab-' + store.genIndex()"
-    >
-      @if (intro() !== 'done') {
-        <app-screen-intro [open]="intro() === 'opening'" />
-      }
-      @if (store.loading()) {
-        <p class="pokedex__status">Carregando Pokédex…</p>
-      } @else if (store.error() === 'network' && store.entries().length === 0) {
-        <div class="pokedex__status">
-          <p>Não foi possível carregar a Pokédex.</p>
-          <p-button label="Tentar de novo" (onClick)="retryInitialLoad()" />
-        </div>
-      } @else if (store.isEmpty()) {
-        <div class="pokedex__status">
-          <p>Nada encontrado com esses filtros.</p>
-          <p-button label="Limpar filtros" severity="secondary" (onClick)="clearSearch()" />
-        </div>
-      } @else {
-        <h2 class="pokedex__gen">{{ screenTitle() }}</h2>
-        <ul
-          class="pokedex__grid"
-          [class.pokedex__grid--reveal]="intro() === 'opening' || tabReveal()"
-        >
-          @for (entry of store.visibleEntries(); track entry.id) {
-            <li [style.--i]="$index"><app-pokemon-card [entry]="entry" /></li>
-          }
-        </ul>
-      }
+    <!-- <main> continua sendo o conteúdo principal (landmark); o painel das abas
+         de geração é um elemento interno. -->
+    <main #results class="pokedex__results">
+      <div
+        id="pokedex-panel"
+        role="tabpanel"
+        [attr.aria-labelledby]="'gen-tab-' + store.genIndex()"
+      >
+        @if (intro() !== 'done') {
+          <app-screen-intro [open]="intro() === 'opening'" />
+        }
+        @if (store.loading()) {
+          <p class="pokedex__status">Carregando Pokédex…</p>
+        } @else if (store.error() === 'network' && store.entries().length === 0) {
+          <div class="pokedex__status">
+            <p>Não foi possível carregar a Pokédex.</p>
+            <p-button label="Tentar de novo" (onClick)="retryInitialLoad()" />
+          </div>
+        } @else if (store.isEmpty()) {
+          <div class="pokedex__status">
+            <p>Nada encontrado com esses filtros.</p>
+            <p-button label="Limpar filtros" severity="secondary" (onClick)="clearSearch()" />
+          </div>
+        } @else {
+          <h2 class="pokedex__gen">{{ screenTitle() }}</h2>
+          <ul
+            class="pokedex__grid"
+            [class.pokedex__grid--reveal]="intro() === 'opening' || tabReveal()"
+          >
+            @for (entry of store.visibleEntries(); track entry.id) {
+              <li [style.--i]="$index">
+                <!-- os primeiros cards estão na 1ª tela: carregam já (o 1º é o LCP) -->
+                <app-pokemon-card [entry]="entry" [eager]="$index < 15" [priority]="$index < 5" />
+              </li>
+            }
+          </ul>
+        }
+      </div>
     </main>
     <div class="pokedex__screen-footer" aria-hidden="true">
       <span class="pokedex__screen-button"></span>

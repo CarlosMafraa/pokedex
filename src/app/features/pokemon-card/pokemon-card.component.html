@@ -4,18 +4,20 @@
   [routerLink]="['/pokemon', entry().name]"
   queryParamsHandling="preserve"
   [attr.aria-label]="(entry().name | titlecase) + ' ' + (entry().id | pokedexNumber)"
-  appInViewport
-  (inViewport)="onVisible()"
 >
   <span class="card__number">{{ entry().id | pokedexNumber }}</span>
   <div class="card__art" [class.card__art--loading]="!artworkLoaded()">
     <img
       [src]="currentImage()"
+      [attr.srcset]="srcset()"
       [class.card__art-img--placeholder]="artworkFailed()"
       [class.card__art-img--loaded]="artworkLoaded()"
       (load)="artworkLoaded.set(true)"
       [alt]="entry().name | titlecase"
-      loading="lazy"
+      width="96"
+      height="96"
+      [attr.loading]="eager() ? 'eager' : 'lazy'"
+      [attr.fetchpriority]="priority() ? 'high' : null"
       decoding="async"
       (error)="onArtworkError()"
     />

@@ -54,10 +54,20 @@
     var(--dex-lens) 55%,
     color-mix(in srgb, var(--dex-lens) 60%, #000) 100%
   );
-  box-shadow:
-    0 0 0 3px var(--dex-red-dark),
-    0 0 18px color-mix(in srgb, var(--dex-lens) 70%, transparent);
+  box-shadow: 0 0 0 3px var(--dex-red-dark);
+  position: relative;
+}
+/* Brilho pulsando numa camada própria: anima só opacity (composto pela GPU);
+   animar box-shadow repintava a cada quadro. */
+.pokedex__lens::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  box-shadow: 0 0 22px 4px color-mix(in srgb, var(--dex-lens) 85%, transparent);
+  opacity: 0.4;
   animation: dex-lens-pulse 3.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .pokedex__led {
@@ -78,20 +88,12 @@
 }
 
 @keyframes dex-lens-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 3px var(--dex-red-dark),
-      0 0 10px color-mix(in srgb, var(--dex-lens) 50%, transparent);
-  }
   50% {
-    box-shadow:
-      0 0 0 3px var(--dex-red-dark),
-      0 0 26px color-mix(in srgb, var(--dex-lens) 90%, transparent);
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pokedex__lens {
+  .pokedex__lens::after {
     animation: none;
   }
 }

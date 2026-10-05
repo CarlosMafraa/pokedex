@@ -6,7 +6,7 @@
     <base href="/" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://pokeapi.co; base-uri 'self'; object-src 'none'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://cdn.jsdelivr.net https://wsrv.nl; connect-src 'self' https://pokeapi.co; base-uri 'self'; object-src 'none'; form-action 'none'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
@@ -27,8 +27,12 @@
     />
     <meta property="og:url" content="https://carlosmafraa.github.io/pokedex/" />
     <link rel="icon" type="image/png" href="assets/favicon/pokebola.png" />
+    <!-- conexões adiantadas: lista/tipos (PokéAPI) e imagens (miniaturas e artes) -->
+    <link rel="preconnect" href="https://pokeapi.co" crossorigin />
+    <link rel="preconnect" href="https://wsrv.nl" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <script src="spa-redirect.js"></script>
+    <!-- defer: não bloqueia a renderização e ainda roda antes do bundle (módulo) -->
+    <script src="spa-redirect.js" defer></script>
   </head>
   <body>
     <app-root></app-root>

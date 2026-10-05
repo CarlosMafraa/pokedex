@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'];
 
 async function scan(page: Page) {
   return new AxeBuilder({ page }).withTags(WCAG).analyze();

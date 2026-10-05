@@ -92,8 +92,17 @@ export class PokemonStore {
     this._error.set(null);
     this._searchResult.set(null);
     try {
-      const page = await this.api.getPage(NATIONAL_DEX_SIZE, 0);
-      this._entries.set(page.entries);
+      // tipos são enfeite: se o mapa falhar, os cards ficam neutros, mas abrem
+      const [page, types] = await Promise.all([
+        this.api.getPage(NATIONAL_DEX_SIZE, 0),
+        this.api.getTypesMap().catch(() => ({}) as Record<string, string>),
+      ]);
+      this._entries.set(
+        page.entries.map((entry) => {
+          const known = types[entry.id];
+          return known ? { ...entry, types: known.split(',') } : entry;
+        }),
+      );
     } catch {
       this._error.set('network');
       this._entries.set([]);
@@ -191,6 +200,7 @@ export class PokemonStore {
         id: details.id,
         name: details.name,
         artworkUrl: this.api.artworkUrl(details.id),
+        thumbnailUrl: this.api.thumbnailUrl(details.id),
         types: details.types.map((type) => type.type.name),
       });
       this._error.set(null);
@@ -214,23 +224,6 @@ export class PokemonStore {
     this.typeFilterToken++;
     this._searchResult.set(null);
     this._error.set(null);
-  }
-
-  /** Preenche os tipos de um item de forma preguiçosa (chamado quando o card aparece). */
-  async hydrateTypes(id: number): Promise<void> {
-    const entry = this._entries().find((item) => item.id === id);
-    if (!entry || entry.types) {
-      return;
-    }
-    try {
-      const details = await this.api.getDetails(id);
-      const types = details.types.map((type) => type.type.name);
-      this._entries.update((current) =>
-        current.map((item) => (item.id === id ? { ...item, types } : item)),
-      );
-    } catch {
-      // tipos são enfeite; falha silenciosa mantém o card utilizável
-    }
   }
 
   async select(idOrName: number | string): Promise<void> {
