@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, devices } from '@playwright/test';
 
 const firstCard = (page: Page) => page.locator('app-pokemon-card .card').first();
 const searchBox = (page: Page) => page.getByLabel('Buscar Pokémon');
@@ -339,4 +339,42 @@ test('detalhe nunca rola: encaixa até as descrições mais longas em telas baix
       }
     }
   }
+});
+
+// perfil de celular (tela de toque, sem mouse); o navegador continua o Chromium
+// do projeto — trocar defaultBrowserType dentro de um describe não é permitido
+const { defaultBrowserType: _browser, ...pixel7 } = devices['Pixel 7'];
+
+test.describe('celular (toque)', () => {
+  test.use(pixel7);
+
+  test('o card inteiro é o alvo do toque (a imagem não) e o painel abre animado', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForGrid(page);
+    const card = page.locator('app-pokemon-card .card').nth(3);
+    const img = card.locator('img');
+    await expect(img).toHaveCSS('pointer-events', 'none');
+    await expect(img).toHaveAttribute('draggable', 'false');
+
+    // tocar no centro da imagem acerta o card (link), não a <img>
+    const box = (await img.boundingBox())!;
+    const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+    const hit = await page.evaluate(
+      ([px, py]) => document.elementFromPoint(px, py)!.tagName,
+      [x, y],
+    );
+    expect(hit).not.toBe('IMG');
+    await page.touchscreen.tap(x, y);
+
+    // o painel sobe de baixo de forma perceptível (antes: 150 ms)
+    await expect(page.locator('.p-dialog')).toBeVisible();
+    const midway = await page.evaluate(
+      () => document.querySelector('.p-dialog')!.getBoundingClientRect().top,
+    );
+    expect(midway).toBeGreaterThan(200);
+    await expect(page).toHaveURL(/\/pokemon\/charmander/);
+    await expect(page.locator('app-pokemon-detail .detail__name')).toHaveText('Charmander');
+  });
 });

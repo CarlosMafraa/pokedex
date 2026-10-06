@@ -24,11 +24,28 @@
   --tint: #9aa0a6;
 }
 
-.card:hover,
+/* O card inteiro é o único alvo de toque: sem realce do navegador só numa
+   parte, sem atraso de duplo toque e sem selecionar texto ao tocar. */
+.card {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Levantar no hover só com mouse: no toque o :hover "gruda" no card. */
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.26);
+  }
+}
 .card:focus-visible {
   transform: translateY(-5px);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.26);
   outline: none;
+}
+/* Toque/clique: o card inteiro afunda, não só a imagem. */
+.card:active {
+  transform: scale(0.97);
 }
 
 .card:focus-visible {
@@ -69,7 +86,12 @@
     opacity: 0.1;
   }
 }
+/* A arte é só desenho: não recebe toque, não arrasta e não abre o menu de
+   "salvar imagem" no toque longo — quem responde é o card (o link). */
 .card__art img {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
   opacity: 0;
   transition: opacity 0.3s ease;
   max-width: 100%;

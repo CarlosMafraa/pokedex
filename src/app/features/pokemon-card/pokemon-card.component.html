@@ -14,6 +14,7 @@
       [class.card__art-img--loaded]="artworkLoaded()"
       (load)="artworkLoaded.set(true)"
       [alt]="entry().name | titlecase"
+      draggable="false"
       width="96"
       height="96"
       [attr.loading]="eager() ? 'eager' : 'lazy'"

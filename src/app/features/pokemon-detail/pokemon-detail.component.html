@@ -6,6 +6,7 @@
   [dismissableMask]="true"
   [showHeader]="false"
   [position]="wide() ? 'center' : 'bottom'"
+  [transitionOptions]="openTransition()"
   (onShow)="syncDialogAria()"
   [styleClass]="wide() ? 'detail-dialog' : 'detail-dialog detail-dialog--sheet'"
   [style]="wide() ? { width: 'min(94vw, 780px)' } : { width: '100vw', maxWidth: '100vw' }"

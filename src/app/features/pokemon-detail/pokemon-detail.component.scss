@@ -18,6 +18,12 @@
   max-height: 92dvh;
   border-radius: 20px 20px 0 0;
 }
+/* Telas baixas (iPhone SE e afins): o painel pode ocupar um pouco mais. */
+@media (max-height: 600px) {
+  :host ::ng-deep .detail-dialog--sheet {
+    height: 92dvh;
+  }
+}
 :host ::ng-deep .detail-dialog--sheet .pokemon-detail__content {
   display: flex;
   flex-direction: column;
@@ -107,6 +113,7 @@
 /*  Arte: fundo suave na cor do tipo (antes era uma faixa forte e grande).     */
 /* -------------------------------------------------------------------------- */
 .detail__hero {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;

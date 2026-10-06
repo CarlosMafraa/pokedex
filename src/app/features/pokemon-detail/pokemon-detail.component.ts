@@ -42,12 +42,17 @@ type DetailTab = 'sobre' | 'status';
 
 /** A partir desta largura o detalhe vira cartão em duas colunas. */
 const WIDE_QUERY = typeof matchMedia === 'function' ? '(min-width: 760px)' : null;
+const REDUCED_MOTION =
+  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 /** Duração da troca animada entre Sobre e Status no painel do celular. */
 const TAB_ANIM_MS = 320;
 const TAB_ANIM_EASING = 'cubic-bezier(0.3, 0, 0.2, 1)';
 
 /** Menores tamanhos aceitos ao encaixar o detalhe na tela (ver fitToViewport). */
 const MIN_ART_PX = 64;
+/** Arte mínima no modo compacto (último recurso antes de rolar). */
+const MIN_ART_TIGHT_PX = 44;
 const MIN_HEX_PX = 150;
 /** Altura do hexágono em relação à largura (viewBox 320×290 + linha do total). */
 const HEX_HEIGHT_RATIO = 0.95;
@@ -67,7 +72,8 @@ const SHEET_CLOSE_DRAG_PX = 110;
     PokeballComponent,
   ],
   templateUrl: './pokemon-detail.component.html',
-  styleUrl: './pokemon-detail.component.scss',
+  // o modo compacto (telas muito pequenas) fica num arquivo à parte
+  styleUrls: ['./pokemon-detail.component.scss', './pokemon-detail-tight.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PokemonDetailComponent implements OnDestroy {
@@ -107,6 +113,18 @@ export class PokemonDetailComponent implements OnDestroy {
       }
     });
   };
+
+  /**
+   * Abertura/fechamento: o padrão do PrimeNG (150 ms) é rápido demais para ser
+   * percebido, ainda mais no painel que sobe de baixo no celular.
+   */
+  readonly openTransition = computed(() =>
+    REDUCED_MOTION
+      ? '0ms linear'
+      : this.wide()
+        ? '220ms cubic-bezier(0.2, 0.8, 0.3, 1)'
+        : '380ms cubic-bezier(0.22, 1, 0.36, 1)',
+  );
 
   /** Arrastar o puxador do painel para baixo fecha o detalhe. */
   private drag: { startY: number; sheet: HTMLElement } | null = null;
@@ -285,26 +303,42 @@ export class PokemonDetailComponent implements OnDestroy {
     if (!content || !detail) {
       return;
     }
+    delete detail.dataset['fit'];
     detail.style.removeProperty('--art-size');
     detail.style.removeProperty('--hex-width');
-    let over = content.scrollHeight - content.clientHeight;
+    const measure = () => content.scrollHeight - content.clientHeight;
+    let over = measure();
     if (over <= 0) {
       return;
     }
 
     const art = root.querySelector<HTMLElement>('.detail__art-wrap');
-    if (art && !this.wide() && this.activeTab() === 'sobre') {
-      const current = art.offsetHeight;
-      const next = Math.max(MIN_ART_PX, current - over);
-      detail.style.setProperty('--art-size', `${next}px`);
-      over -= current - next;
+    const shrinkArt = (min: number) => {
+      if (art && !this.wide() && this.activeTab() === 'sobre' && over > 0) {
+        const current = art.offsetHeight;
+        const next = Math.max(min, current - over);
+        detail.style.setProperty('--art-size', `${next}px`);
+        over -= current - next;
+      }
+    };
+    shrinkArt(MIN_ART_PX);
+
+    // Ainda não coube (telas estreitas e baixas, como o iPhone SE): modo
+    // compacto — espaçamentos/textos menores e o "Animar" flutuando sobre a
+    // arte. Mede de novo do zero, porque o layout inteiro muda.
+    if (over > 0 && !this.wide()) {
+      detail.dataset['fit'] = 'tight';
+      detail.style.removeProperty('--art-size');
+      over = measure();
+      shrinkArt(MIN_ART_TIGHT_PX);
     }
 
-    // <svg> não tem offsetWidth; o retângulo do svg não sofre a animação
+    // <svg> não tem offsetWidth; o retângulo do svg não sofre a animação.
+    // Margem de 4 px: alturas fracionárias (ex.: 499,8 px) arredondam para cima.
     const hex = root.querySelector<SVGSVGElement>('app-stat-hexagon .hex__chart');
     if (over > 0 && hex) {
       const width = hex.getBoundingClientRect().width;
-      const next = Math.max(MIN_HEX_PX, Math.floor(width - over / HEX_HEIGHT_RATIO) - 2);
+      const next = Math.max(MIN_HEX_PX, Math.floor(width - over / HEX_HEIGHT_RATIO) - 4);
       detail.style.setProperty('--hex-width', `${next}px`);
     }
   }
